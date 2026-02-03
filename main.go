@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"github.com/glanceapp/glance/internal/glance"
+	"github.com/limpdev/gander/internal/glance/app"
 )
 
 func main() {
-	os.Exit(glance.Main())
+	os.Exit(app.Main())
 }
