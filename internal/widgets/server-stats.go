@@ -10,10 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/limpdev/gander/internal/utils"
+	"github.com/limpdev/gander/internal/web"
 	"github.com/limpdev/gander/pkg/sysinfo"
 )
 
-var serverStatsWidgetTemplate = mustParseTemplate("server-stats.html", "widget-base.html")
+var serverStatsWidgetTemplate = web.MustParseTemplate("server-stats.html", "widget-base.html")
 
 type serverStatsWidget struct {
 	widgetBase `yaml:",inline"`
@@ -32,7 +34,7 @@ func (widget *serverStatsWidget) initialize() error {
 		widget.Servers[i].URL = strings.TrimRight(widget.Servers[i].URL, "/")
 
 		if widget.Servers[i].Timeout == 0 {
-			widget.Servers[i].Timeout = durationField(3 * time.Second)
+			widget.Servers[i].Timeout = utils.DurationField(3 * time.Second)
 		}
 	}
 
@@ -94,7 +96,7 @@ type serverStatsRequest struct {
 	Type                       string              `yaml:"type"`
 	URL                        string              `yaml:"url"`
 	Token                      string              `yaml:"token"`
-	Timeout                    durationField       `yaml:"timeout"`
+	Timeout                    utils.DurationField `yaml:"timeout"`
 	// Support for other agents
 	// Provider                   string              `yaml:"provider"`
 }

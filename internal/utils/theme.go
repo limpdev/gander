@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	StyleTemplate         = mustParseTemplate("theme-style.gotmpl")
-	PresetPreviewTemplate = mustParseTemplate("theme-preset-preview.html")
+	StyleTemplate         = MustParseTemplate("theme-style.gotmpl")
+	PresetPreviewTemplate = MustParseTemplate("theme-preset-preview.html")
 )
 
 func (a *application) handleThemeChangeRequest(w http.ResponseWriter, r *http.Request) {

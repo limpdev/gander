@@ -58,7 +58,7 @@ var globalTemplateFunctions = template.FuncMap{
 	},
 }
 
-func mustParseTemplate(primary string, dependencies ...string) *template.Template {
+func MustParseTemplate(primary string, dependencies ...string) *template.Template {
 	t, err := template.New(primary).
 		Funcs(globalTemplateFunctions).
 		ParseFS(templateFS, append([]string{primary}, dependencies...)...)
