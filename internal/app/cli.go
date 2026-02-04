@@ -41,7 +41,7 @@ func ParseCliOptions() (*Options, error) {
 	}
 	flags := flag.NewFlagSet("", flag.ExitOnError)
 	flags.Usage = func() {
-		fmt.Println("Usage: glance [options] command")
+		fmt.Println("Usage: gander [options] command")
 		fmt.Println("\nOptions:")
 		flags.PrintDefaults()
 		fmt.Println("\nCommands:")
@@ -53,7 +53,7 @@ func ParseCliOptions() (*Options, error) {
 		fmt.Println(" mountpoint:info Print information about a given mountpoint path")
 		fmt.Println(" diagnose Run diagnostic checks")
 	}
-	configPath := flags.String("config", "glance.yml", "Set config path")
+	configPath := flags.String("config", "gander.yml", "Set config path")
 	err := flags.Parse(os.Args[1:])
 	if err != nil {
 		return nil, err
