@@ -7,22 +7,23 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/limpdev/gander/internal/cli"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var buildVersion = "dev"
 
 func Main() int {
-	options, err := parseCliOptions()
+	options, err := cli.ParseCliOptions()
 	if err != nil {
 		fmt.Println(err)
 		return 1
 	}
 
 	switch options.intent {
-	case cliIntentVersionPrint:
+	case cli.CliIntentVersionPrint:
 		fmt.Println(buildVersion)
-	case cliIntentServe:
+	case cli.CliIntentServe:
 		// remove in v0.10.0
 		if serveUpdateNoticeIfConfigLocationNotMigrated(options.configPath) {
 			return 1
@@ -32,7 +33,7 @@ func Main() int {
 			fmt.Println(err)
 			return 1
 		}
-	case cliIntentConfigValidate:
+	case cli.CliIntentConfigValidate:
 		contents, _, err := parseYAMLIncludes(options.configPath)
 		if err != nil {
 			fmt.Printf("Could not parse config file: %v\n", err)
@@ -43,7 +44,7 @@ func Main() int {
 			fmt.Printf("Config file is invalid: %v\n", err)
 			return 1
 		}
-	case cliIntentConfigPrint:
+	case cli.CliIntentConfigPrint:
 		contents, _, err := parseYAMLIncludes(options.configPath)
 		if err != nil {
 			fmt.Printf("Could not parse config file: %v\n", err)
@@ -51,13 +52,13 @@ func Main() int {
 		}
 
 		fmt.Println(string(contents))
-	case cliIntentSensorsPrint:
+	case cli.CliIntentSensorsPrint:
 		return cliSensorsPrint()
-	case cliIntentMountpointInfo:
+	case cli.CliIntentMountpointInfo:
 		return cliMountpointInfo(options.args[1])
-	case cliIntentDiagnose:
+	case cli.CliIntentDiagnose:
 		runDiagnostic()
-	case cliIntentSecretMake:
+	case cli.CliIntentSecretMake:
 		key, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
 		if err != nil {
 			fmt.Printf("Failed to make secret key: %v\n", err)
@@ -65,7 +66,7 @@ func Main() int {
 		}
 
 		fmt.Println(key)
-	case cliIntentPasswordHash:
+	case cli.CliIntentPasswordHash:
 		password := options.args[1]
 
 		if password == "" {

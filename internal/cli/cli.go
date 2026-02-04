@@ -13,15 +13,15 @@ import (
 type cliIntent uint8
 
 const (
-	cliIntentVersionPrint cliIntent = iota
-	cliIntentServe
-	cliIntentConfigValidate
-	cliIntentConfigPrint
-	cliIntentDiagnose
-	cliIntentSensorsPrint
-	cliIntentMountpointInfo
-	cliIntentSecretMake
-	cliIntentPasswordHash
+	CliIntentVersionPrint cliIntent = iota
+	CliIntentServe
+	CliIntentConfigValidate
+	CliIntentConfigPrint
+	CliIntentDiagnose
+	CliIntentSensorsPrint
+	CliIntentMountpointInfo
+	CliIntentSecretMake
+	CliIntentPasswordHash
 )
 
 type cliOptions struct {
@@ -36,7 +36,7 @@ func parseCliOptions() (*cliOptions, error) {
 	args = os.Args[1:]
 	if len(args) == 1 && (args[0] == "--version" || args[0] == "-v" || args[0] == "version") {
 		return &cliOptions{
-			intent: cliIntentVersionPrint,
+			intent: CliIntentVersionPrint,
 		}, nil
 	}
 
@@ -68,30 +68,30 @@ func parseCliOptions() (*cliOptions, error) {
 	unknownCommandErr := fmt.Errorf("unknown command: %s", strings.Join(args, " "))
 
 	if len(args) == 0 {
-		intent = cliIntentServe
+		intent = CliIntentServe
 	} else if len(args) == 1 {
 		if args[0] == "config:validate" {
-			intent = cliIntentConfigValidate
+			intent = CliIntentConfigValidate
 		} else if args[0] == "config:print" {
-			intent = cliIntentConfigPrint
+			intent = CliIntentConfigPrint
 		} else if args[0] == "sensors:print" {
-			intent = cliIntentSensorsPrint
+			intent = CliIntentSensorsPrint
 		} else if args[0] == "diagnose" {
-			intent = cliIntentDiagnose
+			intent = CliIntentDiagnose
 		} else if args[0] == "secret:make" {
-			intent = cliIntentSecretMake
+			intent = CliIntentSecretMake
 		} else {
 			return nil, unknownCommandErr
 		}
 	} else if len(args) == 2 {
 		if args[0] == "password:hash" {
-			intent = cliIntentPasswordHash
+			intent = CliIntentPasswordHash
 		} else {
 			return nil, unknownCommandErr
 		}
 	} else if len(args) == 2 {
 		if args[0] == "mountpoint:info" {
-			intent = cliIntentMountpointInfo
+			intent = CliIntentMountpointInfo
 		} else {
 			return nil, unknownCommandErr
 		}
