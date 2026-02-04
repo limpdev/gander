@@ -82,17 +82,17 @@ type page struct {
 	ShowMobileHeader       bool    `yaml:"show-mobile-header"`
 	HideDesktopNavigation  bool    `yaml:"hide-desktop-navigation"`
 	CenterVertically       bool    `yaml:"center-vertically"`
-	HeadWidgets            widgets `yaml:"head-widgets"`
+	HeadWidgets            Widgets `yaml:"head-widgets"`
 	Columns                []struct {
 		Size    string  `yaml:"size"`
-		Widgets widgets `yaml:"widgets"`
+		Widgets Widgets `yaml:"widgets"`
 	} `yaml:"columns"`
 	PrimaryColumnIndex int8       `yaml:"-"`
 	mu                 sync.Mutex `yaml:"-"`
 }
 
-func newConfigFromYAML(contents []byte) (*config, error) {
-	contents, err := parseConfigVariables(contents)
+func NewConfigFromYAML(contents []byte) (*config, error) {
+	contents, err := ParseConfigVariables(contents)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ var (
 //
 // TODO: don't match against commented out sections, not sure exactly how since
 // variables can be placed anywhere and used to modify the YAML structure itself
-func parseConfigVariables(contents []byte) ([]byte, error) {
+func ParseConfigVariables(contents []byte) ([]byte, error) {
 	var err error
 
 	replaced := configVariablePattern.ReplaceAllFunc(contents, func(match []byte) []byte {
@@ -166,7 +166,7 @@ func parseConfigVariables(contents []byte) ([]byte, error) {
 		}
 
 		typeAsString, variableName := string(groups[2]), string(groups[3])
-		variableType := ternary(typeAsString == "", configVarTypeEnv, typeAsString)
+		variableType := Ternary(typeAsString == "", configVarTypeEnv, typeAsString)
 
 		parsedValue, returnOriginal, localErr := parseConfigVariableOfType(variableType, variableName)
 		if localErr != nil {
@@ -235,13 +235,13 @@ func parseConfigVariableOfType(variableType, variableName string) (string, bool,
 	}
 }
 
-func formatWidgetInitError(err error, w widget) error {
+func FormatWidgetInitError(err error, w Widget) error {
 	return fmt.Errorf("%s widget: %v", w.GetType(), err)
 }
 
 var configIncludePattern = regexp.MustCompile(`(?m)^([ \t]*)(?:-[ \t]*)?(?:!|\$)include:[ \t]*(.+)$`)
 
-func parseYAMLIncludes(mainFilePath string) ([]byte, map[string]struct{}, error) {
+func ParseYAMLIncludes(mainFilePath string) ([]byte, map[string]struct{}, error) {
 	return recursiveParseYAMLIncludes(mainFilePath, nil, 0)
 }
 

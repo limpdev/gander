@@ -17,12 +17,12 @@ import (
 
 var widgetIDCounter atomic.Uint64
 
-func newWidget(widgetType string) (widget, error) {
+func newWidget(widgetType string) (Widget, error) {
 	if widgetType == "" {
 		return nil, errors.New("widget 'type' property is empty or not specified")
 	}
 
-	var w widget
+	var w Widget
 
 	switch widgetType {
 	case "calendar":
@@ -90,9 +90,9 @@ func newWidget(widgetType string) (widget, error) {
 	return w, nil
 }
 
-type widgets []widget
+type Widgets []Widget
 
-func (w *widgets) UnmarshalYAML(node *yaml.Node) error {
+func (w *Widgets) UnmarshalYAML(node *yaml.Node) error {
 	var nodes []yaml.Node
 
 	if err := node.Decode(&nodes); err != nil {
@@ -123,7 +123,7 @@ func (w *widgets) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-type widget interface {
+type Widget interface {
 	// These need to be exported because they get called in templates
 	Render() template.HTML
 	GetType() string

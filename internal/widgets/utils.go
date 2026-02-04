@@ -14,6 +14,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/limpdev/gander/internal/app"
+	"github.com/limpdev/gander/internal/utils"
 )
 
 var (
@@ -43,7 +46,7 @@ type requestDoer interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-var glanceUserAgentString = "Gander/" + utils.buildVersion + " +https://github.com/limpdev/gander"
+var glanceUserAgentString = "Gander/" + app.BuildVersion + " +https://github.com/limpdev/gander"
 var userAgentPersistentVersion atomic.Int32
 
 func getBrowserUserAgentHeader() string {
@@ -74,7 +77,7 @@ func decodeJsonFromRequest[T any](client requestDoer, request *http.Request) (T,
 	}
 
 	if response.StatusCode != http.StatusOK {
-		truncatedBody, _ := utils.limitStringLength(string(body), 256)
+		truncatedBody, _ := utils.LimitStringLength(string(body), 256)
 
 		return result, fmt.Errorf(
 			"unexpected status code %d from %s, response: %s",
@@ -114,7 +117,7 @@ func decodeXmlFromRequest[T any](client requestDoer, request *http.Request) (T, 
 	}
 
 	if response.StatusCode != http.StatusOK {
-		truncatedBody, _ := utils.limitStringLength(string(body), 256)
+		truncatedBody, _ := utils.LimitStringLength(string(body), 256)
 
 		return result, fmt.Errorf(
 			"unexpected status code %d for %s, response: %s",

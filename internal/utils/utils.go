@@ -111,7 +111,7 @@ func prefixStringLines(prefix string, s string) string {
 	return strings.Join(lines, "\n")
 }
 
-func limitStringLength(s string, max int) (string, bool) {
+func LimitStringLength(s string, max int) (string, bool) {
 	asRunes := []rune(s)
 
 	if len(asRunes) > max {
