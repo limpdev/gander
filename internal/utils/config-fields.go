@@ -96,9 +96,9 @@ func (c *hslColorField) UnmarshalYAML(node *yaml.Node) error {
 
 var durationFieldPattern = regexp.MustCompile(`^(\d+)(s|m|h|d)$`)
 
-type durationField time.Duration
+type DurationField time.Duration
 
-func (d *durationField) UnmarshalYAML(node *yaml.Node) error {
+func (d *DurationField) UnmarshalYAML(node *yaml.Node) error {
 	var value string
 
 	if err := node.Decode(&value); err != nil {
@@ -118,13 +118,13 @@ func (d *durationField) UnmarshalYAML(node *yaml.Node) error {
 
 	switch matches[2] {
 	case "s":
-		*d = durationField(time.Duration(duration) * time.Second)
+		*d = DurationField(time.Duration(duration) * time.Second)
 	case "m":
-		*d = durationField(time.Duration(duration) * time.Minute)
+		*d = DurationField(time.Duration(duration) * time.Minute)
 	case "h":
-		*d = durationField(time.Duration(duration) * time.Hour)
+		*d = DurationField(time.Duration(duration) * time.Hour)
 	case "d":
-		*d = durationField(time.Duration(duration) * 24 * time.Hour)
+		*d = DurationField(time.Duration(duration) * 24 * time.Hour)
 	}
 
 	return nil
@@ -191,7 +191,7 @@ func (i *customIconField) UnmarshalYAML(node *yaml.Node) error {
 type proxyOptionsField struct {
 	URL           string        `yaml:"url"`
 	AllowInsecure bool          `yaml:"allow-insecure"`
-	Timeout       durationField `yaml:"timeout"`
+	Timeout       DurationField `yaml:"timeout"`
 	client        *http.Client  `yaml:"-"`
 }
 

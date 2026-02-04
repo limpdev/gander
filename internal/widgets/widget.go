@@ -1,4 +1,4 @@
-package app
+package widgets
 
 import (
 	"bytes"
@@ -129,7 +129,7 @@ type Widget interface {
 	GetType() string
 	GetID() uint64
 
-	initialize() error
+	Initialize() error
 	requiresUpdate(*time.Time) bool
 	setProviders(*widgetProviders)
 	update(context.Context)

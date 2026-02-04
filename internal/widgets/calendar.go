@@ -25,7 +25,7 @@ type calendarWidget struct {
 	cachedHTML     template.HTML `yaml:"-"`
 }
 
-func (widget *calendarWidget) initialize() error {
+func (widget *calendarWidget) Initialize() error {
 	widget.withTitle("Calendar").withError(nil)
 
 	if widget.FirstDayOfWeek == "" {

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/limpdev/gander/internal/app"
 	"gopkg.in/yaml.v3"
 )
 
@@ -75,17 +76,17 @@ type user struct {
 }
 
 type page struct {
-	Title                  string  `yaml:"name"`
-	Slug                   string  `yaml:"slug"`
-	Width                  string  `yaml:"width"`
-	DesktopNavigationWidth string  `yaml:"desktop-navigation-width"`
-	ShowMobileHeader       bool    `yaml:"show-mobile-header"`
-	HideDesktopNavigation  bool    `yaml:"hide-desktop-navigation"`
-	CenterVertically       bool    `yaml:"center-vertically"`
-	HeadWidgets            Widgets `yaml:"head-widgets"`
+	Title                  string      `yaml:"name"`
+	Slug                   string      `yaml:"slug"`
+	Width                  string      `yaml:"width"`
+	DesktopNavigationWidth string      `yaml:"desktop-navigation-width"`
+	ShowMobileHeader       bool        `yaml:"show-mobile-header"`
+	HideDesktopNavigation  bool        `yaml:"hide-desktop-navigation"`
+	CenterVertically       bool        `yaml:"center-vertically"`
+	HeadWidgets            app.Widgets `yaml:"head-widgets"`
 	Columns                []struct {
-		Size    string  `yaml:"size"`
-		Widgets Widgets `yaml:"widgets"`
+		Size    string      `yaml:"size"`
+		Widgets app.Widgets `yaml:"widgets"`
 	} `yaml:"columns"`
 	PrimaryColumnIndex int8       `yaml:"-"`
 	mu                 sync.Mutex `yaml:"-"`
@@ -105,21 +106,21 @@ func NewConfigFromYAML(contents []byte) (*config, error) {
 		return nil, err
 	}
 
-	if err = isConfigStateValid(config); err != nil {
+	if err = IsConfigStateValid(config); err != nil {
 		return nil, err
 	}
 
 	for p := range config.Pages {
 		for w := range config.Pages[p].HeadWidgets {
-			if err := config.Pages[p].HeadWidgets[w].initialize(); err != nil {
-				return nil, formatWidgetInitError(err, config.Pages[p].HeadWidgets[w])
+			if err := config.Pages[p].HeadWidgets[w].Initialize(); err != nil {
+				return nil, FormatWidgetInitError(err, config.Pages[p].HeadWidgets[w])
 			}
 		}
 
 		for c := range config.Pages[p].Columns {
 			for w := range config.Pages[p].Columns[c].Widgets {
-				if err := config.Pages[p].Columns[c].Widgets[w].initialize(); err != nil {
-					return nil, formatWidgetInitError(err, config.Pages[p].Columns[c].Widgets[w])
+				if err := config.Pages[p].Columns[c].Widgets[w].Initialize(); err != nil {
+					return nil, FormatWidgetInitError(err, config.Pages[p].Columns[c].Widgets[w])
 				}
 			}
 		}
@@ -168,7 +169,7 @@ func ParseConfigVariables(contents []byte) ([]byte, error) {
 		typeAsString, variableName := string(groups[2]), string(groups[3])
 		variableType := Ternary(typeAsString == "", configVarTypeEnv, typeAsString)
 
-		parsedValue, returnOriginal, localErr := parseConfigVariableOfType(variableType, variableName)
+		parsedValue, returnOriginal, localErr := ParseConfigVariableOfType(variableType, variableName)
 		if localErr != nil {
 			err = fmt.Errorf("parsing variable: %v", localErr)
 			return nil
@@ -189,7 +190,7 @@ func ParseConfigVariables(contents []byte) ([]byte, error) {
 }
 
 // When the bool return value is true, it indicates that the caller should use the original value
-func parseConfigVariableOfType(variableType, variableName string) (string, bool, error) {
+func ParseConfigVariableOfType(variableType, variableName string) (string, bool, error) {
 	switch variableType {
 	case configVarTypeEnv:
 		if !envVariableNamePattern.MatchString(variableName) {
@@ -235,17 +236,17 @@ func parseConfigVariableOfType(variableType, variableName string) (string, bool,
 	}
 }
 
-func FormatWidgetInitError(err error, w Widget) error {
+func FormatWidgetInitError(err error, w app.Widget) error {
 	return fmt.Errorf("%s widget: %v", w.GetType(), err)
 }
 
 var configIncludePattern = regexp.MustCompile(`(?m)^([ \t]*)(?:-[ \t]*)?(?:!|\$)include:[ \t]*(.+)$`)
 
 func ParseYAMLIncludes(mainFilePath string) ([]byte, map[string]struct{}, error) {
-	return recursiveParseYAMLIncludes(mainFilePath, nil, 0)
+	return RecursiveParseYAMLIncludes(mainFilePath, nil, 0)
 }
 
-func recursiveParseYAMLIncludes(mainFilePath string, includes map[string]struct{}, depth int) ([]byte, map[string]struct{}, error) {
+func RecursiveParseYAMLIncludes(mainFilePath string, includes map[string]struct{}, depth int) ([]byte, map[string]struct{}, error) {
 	if depth > CONFIG_INCLUDE_RECURSION_DEPTH_LIMIT {
 		return nil, nil, fmt.Errorf("recursion depth limit of %d reached", CONFIG_INCLUDE_RECURSION_DEPTH_LIMIT)
 	}
@@ -288,7 +289,7 @@ func recursiveParseYAMLIncludes(mainFilePath string, includes map[string]struct{
 
 		includes[includeFilePath] = struct{}{}
 
-		fileContents, includes, err = recursiveParseYAMLIncludes(includeFilePath, includes, depth+1)
+		fileContents, includes, err = RecursiveParseYAMLIncludes(includeFilePath, includes, depth+1)
 		if err != nil {
 			includesLastErr = err
 			return nil
@@ -304,7 +305,7 @@ func recursiveParseYAMLIncludes(mainFilePath string, includes map[string]struct{
 	return mainFileContents, includes, nil
 }
 
-func configFilesWatcher(
+func ConfigFilesWatcher(
 	mainFilePath string,
 	lastContents []byte,
 	lastIncludes map[string]struct{},
@@ -349,7 +350,7 @@ func configFilesWatcher(
 	mu := sync.Mutex{}
 
 	parseAndCompareBeforeCallback := func() {
-		currentContents, currentIncludes, err := parseYAMLIncludes(mainFilePath)
+		currentContents, currentIncludes, err := ParseYAMLIncludes(mainFilePath)
 		if err != nil {
 			onErr(fmt.Errorf("parsing main file contents for comparison: %w", err))
 			return
@@ -450,7 +451,7 @@ func configFilesWatcher(
 // one of them, which doesn't modify the data and only checks for logical errors
 // and then again when creating the application which does modify the data and do
 // further validation. Would be better if validation was done in a single place.
-func isConfigStateValid(config *config) error {
+func IsConfigStateValid(config *config) error {
 	if len(config.Pages) == 0 {
 		return fmt.Errorf("no pages configured")
 	}
@@ -544,7 +545,7 @@ type orderedYAMLMap[K comparable, V any] struct {
 	data map[K]V
 }
 
-func newOrderedYAMLMap[K comparable, V any](keys []K, values []V) (*orderedYAMLMap[K, V], error) {
+func NewOrderedYAMLMap[K comparable, V any](keys []K, values []V) (*orderedYAMLMap[K, V], error) {
 	if len(keys) != len(values) {
 		return nil, fmt.Errorf("keys and values must have the same length")
 	}
