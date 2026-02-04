@@ -13,15 +13,15 @@ import (
 type cliIntent uint8
 
 const (
-	CliIntentVersionPrint cliIntent = iota
-	CliIntentServe
-	CliIntentConfigValidate
-	CliIntentConfigPrint
-	CliIntentDiagnose
-	CliIntentSensorsPrint
-	CliIntentMountpointInfo
-	CliIntentSecretMake
-	CliIntentPasswordHash
+	IntentVersionPrint cliIntent = iota
+	IntentServe
+	IntentConfigValidate
+	IntentConfigPrint
+	IntentDiagnose
+	IntentSensorsPrint
+	IntentMountpointInfo
+	IntentSecretMake
+	IntentPasswordHash
 )
 
 type cliOptions struct {
@@ -30,13 +30,13 @@ type cliOptions struct {
 	args       []string
 }
 
-func parseCliOptions() (*cliOptions, error) {
+func ParseCliOptions() (*cliOptions, error) {
 	var args []string
 
 	args = os.Args[1:]
 	if len(args) == 1 && (args[0] == "--version" || args[0] == "-v" || args[0] == "version") {
 		return &cliOptions{
-			intent: CliIntentVersionPrint,
+			intent: IntentVersionPrint,
 		}, nil
 	}
 
@@ -68,30 +68,30 @@ func parseCliOptions() (*cliOptions, error) {
 	unknownCommandErr := fmt.Errorf("unknown command: %s", strings.Join(args, " "))
 
 	if len(args) == 0 {
-		intent = CliIntentServe
+		intent = IntentServe
 	} else if len(args) == 1 {
 		if args[0] == "config:validate" {
-			intent = CliIntentConfigValidate
+			intent = IntentConfigValidate
 		} else if args[0] == "config:print" {
-			intent = CliIntentConfigPrint
+			intent = IntentConfigPrint
 		} else if args[0] == "sensors:print" {
-			intent = CliIntentSensorsPrint
+			intent = IntentSensorsPrint
 		} else if args[0] == "diagnose" {
-			intent = CliIntentDiagnose
+			intent = IntentDiagnose
 		} else if args[0] == "secret:make" {
-			intent = CliIntentSecretMake
+			intent = IntentSecretMake
 		} else {
 			return nil, unknownCommandErr
 		}
 	} else if len(args) == 2 {
 		if args[0] == "password:hash" {
-			intent = CliIntentPasswordHash
+			intent = IntentPasswordHash
 		} else {
 			return nil, unknownCommandErr
 		}
 	} else if len(args) == 2 {
 		if args[0] == "mountpoint:info" {
-			intent = CliIntentMountpointInfo
+			intent = IntentMountpointInfo
 		} else {
 			return nil, unknownCommandErr
 		}
@@ -106,7 +106,7 @@ func parseCliOptions() (*cliOptions, error) {
 	}, nil
 }
 
-func cliSensorsPrint() int {
+func CliSensorsPrint() int {
 	tempSensors, err := sensors.SensorsTemperatures()
 	if err != nil {
 		if warns, ok := err.(*sensors.Warnings); ok {
@@ -134,7 +134,7 @@ func cliSensorsPrint() int {
 	return 0
 }
 
-func cliMountpointInfo(requestedPath string) int {
+func CliMountpointInfo(requestedPath string) int {
 	usage, err := disk.Usage(requestedPath)
 	if err != nil {
 		fmt.Printf("Failed to retrieve info for path %s: %v\n", requestedPath, err)
