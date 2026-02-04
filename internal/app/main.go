@@ -20,21 +20,21 @@ func Main() int {
 		return 1
 	}
 
-	switch options.intent {
+	switch options.Intent {
 	case cli.IntentVersionPrint:
 		fmt.Println(buildVersion)
 	case cli.IntentServe:
 		// remove in v0.10.0
-		if serveUpdateNoticeIfConfigLocationNotMigrated(options.configPath) {
+		if serveUpdateNoticeIfConfigLocationNotMigrated(options.ConfigPath) {
 			return 1
 		}
 
-		if err := serveApp(options.configPath); err != nil {
+		if err := serveApp(options.ConfigPath); err != nil {
 			fmt.Println(err)
 			return 1
 		}
 	case cli.IntentConfigValidate:
-		contents, _, err := parseYAMLIncludes(options.configPath)
+		contents, _, err := parseYAMLIncludes(options.ConfigPath)
 		if err != nil {
 			fmt.Printf("Could not parse config file: %v\n", err)
 			return 1
@@ -45,7 +45,7 @@ func Main() int {
 			return 1
 		}
 	case cli.IntentConfigPrint:
-		contents, _, err := parseYAMLIncludes(options.configPath)
+		contents, _, err := parseYAMLIncludes(options.ConfigPath)
 		if err != nil {
 			fmt.Printf("Could not parse config file: %v\n", err)
 			return 1
@@ -55,7 +55,7 @@ func Main() int {
 	case cli.IntentSensorsPrint:
 		return cli.IntentSensorsPrint()
 	case cli.IntentMountpointInfo:
-		return cli.IntentMountpointInfo(options.args[1])
+		return cli.IntentMountpointInfo(options.Args[1])
 	case cli.IntentDiagnose:
 		return cli.IntentDiagnose()
 	case cli.IntentSecretMake:
@@ -67,7 +67,7 @@ func Main() int {
 
 		fmt.Println(key)
 	case cli.IntentPasswordHash:
-		password := options.args[1]
+		password := options.Args[1]
 
 		if password == "" {
 			fmt.Println("Password cannot be empty")

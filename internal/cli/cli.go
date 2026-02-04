@@ -11,10 +11,10 @@ import (
 	"github.com/shirou/gopsutil/v4/sensors"
 )
 
-type cliIntent uint8
+type Intent uint8
 
 const (
-	IntentVersionPrint cliIntent = iota
+	IntentVersionPrint Intent = iota
 	IntentServe
 	IntentConfigValidate
 	IntentConfigPrint
@@ -25,19 +25,19 @@ const (
 	IntentPasswordHash
 )
 
-type cliOptions struct {
-	intent     cliIntent
-	configPath string
-	args       []string
+type Options struct {
+	Intent     Intent
+	ConfigPath string
+	Args       []string
 }
 
-func ParseCliOptions() (*cliOptions, error) {
+func ParseCliOptions() (*Options, error) {
 	var args []string
 
 	args = os.Args[1:]
 	if len(args) == 1 && (args[0] == "--version" || args[0] == "-v" || args[0] == "version") {
-		return &cliOptions{
-			intent: IntentVersionPrint,
+		return &Options{
+			Intent: IntentVersionPrint,
 		}, nil
 	}
 
@@ -64,7 +64,7 @@ func ParseCliOptions() (*cliOptions, error) {
 		return nil, err
 	}
 
-	var intent cliIntent
+	var intent Intent
 	args = flags.Args()
 	unknownCommandErr := fmt.Errorf("unknown command: %s", strings.Join(args, " "))
 
@@ -100,10 +100,10 @@ func ParseCliOptions() (*cliOptions, error) {
 		return nil, unknownCommandErr
 	}
 
-	return &cliOptions{
-		intent:     intent,
-		configPath: *configPath,
-		args:       args,
+	return &Options{
+		Intent:     intent,
+		ConfigPath: *configPath,
+		Args:       args,
 	}, nil
 }
 
