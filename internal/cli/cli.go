@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/limpdev/gander/internal/utils"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/sensors"
 )
@@ -148,7 +149,7 @@ func CliMountpointInfo(requestedPath string) int {
 	}
 
 	fmt.Println("Path:", usage.Path)
-	fmt.Println("FS type:", ternary(usage.Fstype == "", "unknown", usage.Fstype))
+	fmt.Println("FS type:", utils.Ternary(usage.Fstype == "", "unknown", usage.Fstype))
 	fmt.Printf("Used percent: %.1f%%\n", usage.UsedPercent)
 
 	return 0

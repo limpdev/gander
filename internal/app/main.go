@@ -21,9 +21,9 @@ func Main() int {
 	}
 
 	switch options.intent {
-	case cli.CliIntentVersionPrint:
+	case cli.IntentVersionPrint:
 		fmt.Println(buildVersion)
-	case cli.CliIntentServe:
+	case cli.IntentServe:
 		// remove in v0.10.0
 		if serveUpdateNoticeIfConfigLocationNotMigrated(options.configPath) {
 			return 1
@@ -33,7 +33,7 @@ func Main() int {
 			fmt.Println(err)
 			return 1
 		}
-	case cli.CliIntentConfigValidate:
+	case cli.IntentConfigValidate:
 		contents, _, err := parseYAMLIncludes(options.configPath)
 		if err != nil {
 			fmt.Printf("Could not parse config file: %v\n", err)
@@ -44,7 +44,7 @@ func Main() int {
 			fmt.Printf("Config file is invalid: %v\n", err)
 			return 1
 		}
-	case cli.CliIntentConfigPrint:
+	case cli.IntentConfigPrint:
 		contents, _, err := parseYAMLIncludes(options.configPath)
 		if err != nil {
 			fmt.Printf("Could not parse config file: %v\n", err)
@@ -52,13 +52,13 @@ func Main() int {
 		}
 
 		fmt.Println(string(contents))
-	case cli.CliIntentSensorsPrint:
-		return cliSensorsPrint()
-	case cli.CliIntentMountpointInfo:
-		return cliMountpointInfo(options.args[1])
-	case cli.CliIntentDiagnose:
-		runDiagnostic()
-	case cli.CliIntentSecretMake:
+	case cli.IntentSensorsPrint:
+		return cli.IntentSensorsPrint()
+	case cli.IntentMountpointInfo:
+		return cli.IntentMountpointInfo(options.args[1])
+	case cli.IntentDiagnose:
+		return cli.IntentDiagnose()
+	case cli.IntentSecretMake:
 		key, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
 		if err != nil {
 			fmt.Printf("Failed to make secret key: %v\n", err)
@@ -66,7 +66,7 @@ func Main() int {
 		}
 
 		fmt.Println(key)
-	case cli.CliIntentPasswordHash:
+	case cli.IntentPasswordHash:
 		password := options.args[1]
 
 		if password == "" {
