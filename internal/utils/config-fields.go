@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/limpdev/gander/internal/widgets"
 	"gopkg.in/yaml.v3"
 )
 
@@ -218,7 +219,7 @@ func (p *proxyOptionsField) UnmarshalYAML(node *yaml.Node) error {
 		return fmt.Errorf("parsing proxy URL: %v", err)
 	}
 
-	timeout := defaultClientTimeout
+	timeout := widgets.DefaultClientTimeout
 	if p.Timeout > 0 {
 		timeout = time.Duration(p.Timeout)
 	}

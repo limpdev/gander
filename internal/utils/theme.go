@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	themeStyleTemplate         = mustParseTemplate("theme-style.gotmpl")
-	themePresetPreviewTemplate = mustParseTemplate("theme-preset-preview.html")
+	StyleTemplate         = mustParseTemplate("theme-style.gotmpl")
+	PresetPreviewTemplate = mustParseTemplate("theme-preset-preview.html")
 )
 
 func (a *application) handleThemeChangeRequest(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +34,7 @@ func (a *application) handleThemeChangeRequest(w http.ResponseWriter, r *http.Re
 	})
 
 	w.Header().Set("Content-Type", "text/css")
-	w.Header().Set("X-Scheme", ternary(properties.Light, "light", "dark"))
+	w.Header().Set("X-Scheme", Ternary(properties.Light, "light", "dark"))
 	w.Write([]byte(properties.CSS))
 }
 
@@ -54,13 +54,13 @@ type themeProperties struct {
 }
 
 func (t *themeProperties) init() error {
-	css, err := executeTemplateToString(themeStyleTemplate, t)
+	css, err := executeTemplateToString(StyleTemplate, t)
 	if err != nil {
 		return fmt.Errorf("compiling theme style: %v", err)
 	}
 	t.CSS = template.CSS(whitespaceAtBeginningOfLinePattern.ReplaceAllString(css, ""))
 
-	previewHTML, err := executeTemplateToString(themePresetPreviewTemplate, t)
+	previewHTML, err := executeTemplateToString(PresetPreviewTemplate, t)
 	if err != nil {
 		return fmt.Errorf("compiling theme preview: %v", err)
 	}
