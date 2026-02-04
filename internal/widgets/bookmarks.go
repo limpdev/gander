@@ -2,24 +2,27 @@ package widgets
 
 import (
 	"html/template"
+
+	"github.com/limpdev/gander/internal/common"
+	"github.com/limpdev/gander/internal/models"
 )
 
-var bookmarksWidgetTemplate = mustParseTemplate("bookmarks.html", "widget-base.html")
+var bookmarksWidgetTemplate = common.MustParseTemplate("bookmarks.html", "widget-base.html")
 
 type bookmarksWidget struct {
 	widgetBase `yaml:",inline"`
 	cachedHTML template.HTML `yaml:"-"`
 	Groups     []struct {
-		Title     string         `yaml:"title"`
-		Color     *hslColorField `yaml:"color"`
-		SameTab   bool           `yaml:"same-tab"`
-		HideArrow bool           `yaml:"hide-arrow"`
-		Target    string         `yaml:"target"`
+		Title     string                `yaml:"title"`
+		Color     *models.HSLColorField `yaml:"color"`
+		SameTab   bool                  `yaml:"same-tab"`
+		HideArrow bool                  `yaml:"hide-arrow"`
+		Target    string                `yaml:"target"`
 		Links     []struct {
-			Title       string          `yaml:"title"`
-			URL         string          `yaml:"url"`
-			Description string          `yaml:"description"`
-			Icon        customIconField `yaml:"icon"`
+			Title       string                 `yaml:"title"`
+			URL         string                 `yaml:"url"`
+			Description string                 `yaml:"description"`
+			Icon        models.CustomIconField `yaml:"icon"`
 			// we need a pointer to bool to know whether a value was provided,
 			// however there's no way to dereference a pointer in a template so
 			// {{ if not .SameTab }} would return true for any non-nil pointer
@@ -34,7 +37,7 @@ type bookmarksWidget struct {
 	} `yaml:"groups"`
 }
 
-func (widget *bookmarksWidget) initialize() error {
+func (widget *bookmarksWidget) Initialize() error {
 	widget.withTitle("Bookmarks").withError(nil)
 
 	for g := range widget.Groups {

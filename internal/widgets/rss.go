@@ -15,15 +15,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/limpdev/gander/internal/common"
 	"github.com/mmcdole/gofeed"
 	gofeedext "github.com/mmcdole/gofeed/extensions"
 )
 
 var (
-	rssWidgetTemplate                 = mustParseTemplate("rss-list.html", "widget-base.html")
-	rssWidgetDetailedListTemplate     = mustParseTemplate("rss-detailed-list.html", "widget-base.html")
-	rssWidgetHorizontalCardsTemplate  = mustParseTemplate("rss-horizontal-cards.html", "widget-base.html")
-	rssWidgetHorizontalCards2Template = mustParseTemplate("rss-horizontal-cards-2.html", "widget-base.html")
+	rssWidgetTemplate                 = common.MustParseTemplate("rss-list.html", "widget-base.html")
+	rssWidgetDetailedListTemplate     = common.MustParseTemplate("rss-detailed-list.html", "widget-base.html")
+	rssWidgetHorizontalCardsTemplate  = common.MustParseTemplate("rss-horizontal-cards.html", "widget-base.html")
+	rssWidgetHorizontalCards2Template = common.MustParseTemplate("rss-horizontal-cards-2.html", "widget-base.html")
 )
 
 var feedParser = gofeed.NewParser()
@@ -46,7 +47,7 @@ type rssWidget struct {
 	cachedFeeds      map[string]*cachedRSSFeed `yaml:"-"`
 }
 
-func (widget *rssWidget) initialize() error {
+func (widget *rssWidget) Initialize() error {
 	widget.withTitle("RSS Feed").withCacheDuration(2 * time.Hour)
 
 	if widget.Limit <= 0 {
@@ -77,7 +78,7 @@ func (widget *rssWidget) initialize() error {
 	return nil
 }
 
-func (widget *rssWidget) update(ctx context.Context) {
+func (widget *rssWidget) Update(ctx context.Context) {
 	items, err := widget.fetchItemsFromFeeds()
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
@@ -382,7 +383,7 @@ func sanitizeFeedDescription(description string) string {
 
 	description = strings.ReplaceAll(description, "\n", " ")
 	description = htmlTagsWithAttributesPattern.ReplaceAllString(description, "")
-	description = sequentialWhitespacePattern.ReplaceAllString(description, " ")
+	description = common.SequentialWhitespacePattern.ReplaceAllString(description, " ")
 	description = strings.TrimSpace(description)
 	description = html.UnescapeString(description)
 
@@ -390,9 +391,9 @@ func sanitizeFeedDescription(description string) string {
 }
 
 func shortenFeedDescriptionLen(description string, maxLen int) string {
-	description, _ = limitStringLength(description, 1000)
+	description, _ = common.LimitStringLength(description, 1000)
 	description = sanitizeFeedDescription(description)
-	description, limited := limitStringLength(description, maxLen)
+	description, limited := common.LimitStringLength(description, maxLen)
 
 	if limited {
 		description += "…"

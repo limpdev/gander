@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"html/template"
 	"net/url"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
-var iframeWidgetTemplate = mustParseTemplate("iframe.html", "widget-base.html")
+var iframeWidgetTemplate = common.MustParseTemplate("iframe.html", "widget-base.html")
 
 type iframeWidget struct {
 	widgetBase `yaml:",inline"`
@@ -16,7 +18,7 @@ type iframeWidget struct {
 	Height     int           `yaml:"height"`
 }
 
-func (widget *iframeWidget) initialize() error {
+func (widget *iframeWidget) Initialize() error {
 	widget.withTitle("IFrame").withError(nil)
 
 	if widget.Source == "" {

@@ -11,29 +11,32 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
+	"github.com/limpdev/gander/internal/models"
 )
 
 var (
-	redditWidgetHorizontalCardsTemplate = mustParseTemplate("reddit-horizontal-cards.html", "widget-base.html")
-	redditWidgetVerticalCardsTemplate   = mustParseTemplate("reddit-vertical-cards.html", "widget-base.html")
+	redditWidgetHorizontalCardsTemplate = common.MustParseTemplate("reddit-horizontal-cards.html", "widget-base.html")
+	redditWidgetVerticalCardsTemplate   = common.MustParseTemplate("reddit-vertical-cards.html", "widget-base.html")
 )
 
 type redditWidget struct {
 	widgetBase          `yaml:",inline"`
-	Posts               forumPostList     `yaml:"-"`
-	Subreddit           string            `yaml:"subreddit"`
-	Proxy               proxyOptionsField `yaml:"proxy"`
-	Style               string            `yaml:"style"`
-	ShowThumbnails      bool              `yaml:"show-thumbnails"`
-	ShowFlairs          bool              `yaml:"show-flairs"`
-	SortBy              string            `yaml:"sort-by"`
-	TopPeriod           string            `yaml:"top-period"`
-	Search              string            `yaml:"search"`
-	ExtraSortBy         string            `yaml:"extra-sort-by"`
-	CommentsURLTemplate string            `yaml:"comments-url-template"`
-	Limit               int               `yaml:"limit"`
-	CollapseAfter       int               `yaml:"collapse-after"`
-	RequestURLTemplate  string            `yaml:"request-url-template"`
+	Posts               forumPostList            `yaml:"-"`
+	Subreddit           string                   `yaml:"subreddit"`
+	Proxy               models.ProxyOptionsField `yaml:"proxy"`
+	Style               string                   `yaml:"style"`
+	ShowThumbnails      bool                     `yaml:"show-thumbnails"`
+	ShowFlairs          bool                     `yaml:"show-flairs"`
+	SortBy              string                   `yaml:"sort-by"`
+	TopPeriod           string                   `yaml:"top-period"`
+	Search              string                   `yaml:"search"`
+	ExtraSortBy         string                   `yaml:"extra-sort-by"`
+	CommentsURLTemplate string                   `yaml:"comments-url-template"`
+	Limit               int                      `yaml:"limit"`
+	CollapseAfter       int                      `yaml:"collapse-after"`
+	RequestURLTemplate  string                   `yaml:"request-url-template"`
 
 	AppAuth struct {
 		Name   string `yaml:"name"`
@@ -46,7 +49,7 @@ type redditWidget struct {
 	} `yaml:"app-auth"`
 }
 
-func (widget *redditWidget) initialize() error {
+func (widget *redditWidget) Initialize() error {
 	if widget.Subreddit == "" {
 		return errors.New("subreddit is required")
 	}
@@ -91,7 +94,7 @@ func (widget *redditWidget) initialize() error {
 	return nil
 }
 
-func (widget *redditWidget) update(ctx context.Context) {
+func (widget *redditWidget) Update(ctx context.Context) {
 	posts, err := widget.fetchSubredditPosts()
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -202,8 +205,8 @@ func (widget *redditWidget) fetchSubredditPosts() (forumPostList, error) {
 
 	if widget.RequestURLTemplate != "" {
 		requestURL = strings.ReplaceAll(widget.RequestURLTemplate, "{REQUEST-URL}", requestURL)
-	} else if widget.Proxy.client != nil {
-		client = widget.Proxy.client
+	} else if widget.Proxy.Client != nil {
+		client = widget.Proxy.Client
 	}
 
 	request, err := http.NewRequest("GET", requestURL, nil)
@@ -297,7 +300,7 @@ func (widget *redditWidget) fetchNewAppAccessToken() error {
 		ExpiresIn   int    `json:"expires_in"`
 	}
 
-	client := ternary(widget.Proxy.client != nil, widget.Proxy.client, defaultHTTPClient)
+	client := common.Ternary(widget.Proxy.Client != nil, widget.Proxy.Client, defaultHTTPClient)
 	response, err := decodeJsonFromRequest[tokenResponse](client, req)
 	if err != nil {
 		return err

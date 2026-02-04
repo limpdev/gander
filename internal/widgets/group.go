@@ -5,21 +5,24 @@ import (
 	"errors"
 	"html/template"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
+	"github.com/limpdev/gander/internal/models"
 )
 
-var groupWidgetTemplate = mustParseTemplate("group.html", "widget-base.html")
+var groupWidgetTemplate = common.MustParseTemplate("group.html", "widget-base.html")
 
 type groupWidget struct {
 	widgetBase          `yaml:",inline"`
 	containerWidgetBase `yaml:",inline"`
 }
 
-func (widget *groupWidget) initialize() error {
+func (widget *groupWidget) Initialize() error {
 	widget.withError(nil)
 	widget.HideHeader = true
 
 	for i := range widget.Widgets {
-		widget.Widgets[i].setHideHeader(true)
+		widget.Widgets[i].SetHideHeader(true)
 
 		if widget.Widgets[i].GetType() == "group" {
 			return errors.New("nested groups are not supported")
@@ -28,23 +31,24 @@ func (widget *groupWidget) initialize() error {
 		}
 	}
 
-	if err := widget.containerWidgetBase._initializeWidgets(); err != nil {
+	if err := widget.containerWidgetBase.InitializeWidgets(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (widget *groupWidget) update(ctx context.Context) {
-	widget.containerWidgetBase._update(ctx)
+func (widget *groupWidget) Update(ctx context.Context) {
+	widget.containerWidgetBase.Update(ctx)
 }
 
-func (widget *groupWidget) setProviders(providers *widgetProviders) {
-	widget.containerWidgetBase._setProviders(providers)
+func (widget *groupWidget) SetProviders(providers *models.WidgetProviders) {
+	widget.widgetBase.SetProviders(providers)
+	widget.containerWidgetBase.SetProviders(providers)
 }
 
-func (widget *groupWidget) requiresUpdate(now *time.Time) bool {
-	return widget.containerWidgetBase._requiresUpdate(now)
+func (widget *groupWidget) RequiresUpdate(now *time.Time) bool {
+	return widget.containerWidgetBase.RequiresUpdate(now)
 }
 
 func (widget *groupWidget) Render() template.HTML {

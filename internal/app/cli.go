@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/limpdev/gander/internal/utils"
+	"github.com/limpdev/gander/internal/common"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/sensors"
 )
@@ -33,41 +33,34 @@ type Options struct {
 
 func ParseCliOptions() (*Options, error) {
 	var args []string
-
 	args = os.Args[1:]
 	if len(args) == 1 && (args[0] == "--version" || args[0] == "-v" || args[0] == "version") {
 		return &Options{
 			Intent: IntentVersionPrint,
 		}, nil
 	}
-
 	flags := flag.NewFlagSet("", flag.ExitOnError)
 	flags.Usage = func() {
 		fmt.Println("Usage: glance [options] command")
-
 		fmt.Println("\nOptions:")
 		flags.PrintDefaults()
-
 		fmt.Println("\nCommands:")
-		fmt.Println("  config:validate       Validate the config file")
-		fmt.Println("  config:print          Print the parsed config file with embedded includes")
-		fmt.Println("  password:hash <pwd>   Hash a password")
-		fmt.Println("  secret:make           Generate a random secret key")
-		fmt.Println("  sensors:print         List all sensors")
-		fmt.Println("  mountpoint:info       Print information about a given mountpoint path")
-		fmt.Println("  diagnose              Run diagnostic checks")
+		fmt.Println(" config:validate Validate the config file")
+		fmt.Println(" config:print Print the parsed config file with embedded includes")
+		fmt.Println(" password:hash <pwd> Hash a password")
+		fmt.Println(" secret:make Generate a random secret key")
+		fmt.Println(" sensors:print List all sensors")
+		fmt.Println(" mountpoint:info Print information about a given mountpoint path")
+		fmt.Println(" diagnose Run diagnostic checks")
 	}
-
 	configPath := flags.String("config", "glance.yml", "Set config path")
 	err := flags.Parse(os.Args[1:])
 	if err != nil {
 		return nil, err
 	}
-
 	var intent Intent
 	args = flags.Args()
 	unknownCommandErr := fmt.Errorf("unknown command: %s", strings.Join(args, " "))
-
 	if len(args) == 0 {
 		intent = IntentServe
 	} else if len(args) == 1 {
@@ -99,14 +92,12 @@ func ParseCliOptions() (*Options, error) {
 	} else {
 		return nil, unknownCommandErr
 	}
-
 	return &Options{
 		Intent:     intent,
 		ConfigPath: *configPath,
 		Args:       args,
 	}, nil
 }
-
 func CliSensorsPrint() int {
 	tempSensors, err := sensors.SensorsTemperatures()
 	if err != nil {
@@ -121,20 +112,16 @@ func CliSensorsPrint() int {
 			return 1
 		}
 	}
-
 	if len(tempSensors) == 0 {
 		fmt.Println("No sensors found")
 		return 0
 	}
-
 	fmt.Println("Sensors found:")
 	for _, sensor := range tempSensors {
 		fmt.Printf(" %s: %.1f°C\n", sensor.SensorKey, sensor.Temperature)
 	}
-
 	return 0
 }
-
 func CliMountpointInfo(requestedPath string) int {
 	usage, err := disk.Usage(requestedPath)
 	if err != nil {
@@ -144,13 +131,10 @@ func CliMountpointInfo(requestedPath string) int {
 				fmt.Printf(" - %v\n", w)
 			}
 		}
-
 		return 1
 	}
-
 	fmt.Println("Path:", usage.Path)
-	fmt.Println("FS type:", utils.Ternary(usage.Fstype == "", "unknown", usage.Fstype))
+	fmt.Println("FS type:", common.Ternary(usage.Fstype == "", "unknown", usage.Fstype))
 	fmt.Printf("Used percent: %.1f%%\n", usage.UsedPercent)
-
 	return 0
 }

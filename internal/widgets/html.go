@@ -9,7 +9,7 @@ type htmlWidget struct {
 	Source     template.HTML `yaml:"source"`
 }
 
-func (widget *htmlWidget) initialize() error {
+func (widget *htmlWidget) Initialize() error {
 	widget.withTitle("").withError(nil)
 
 	return nil

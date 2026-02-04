@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/limpdev/gander/internal/models"
 )
 
 var widgetIDCounter atomic.Uint64
@@ -85,7 +87,7 @@ func newWidget(widgetType string) (Widget, error) {
 		return nil, fmt.Errorf("unknown widget type: %s", widgetType)
 	}
 
-	w.setID(widgetIDCounter.Add(1))
+	w.SetID(widgetIDCounter.Add(1))
 
 	return w, nil
 }
@@ -130,12 +132,12 @@ type Widget interface {
 	GetID() uint64
 
 	Initialize() error
-	requiresUpdate(*time.Time) bool
-	setProviders(*widgetProviders)
-	update(context.Context)
-	setID(uint64)
-	handleRequest(w http.ResponseWriter, r *http.Request)
-	setHideHeader(bool)
+	RequiresUpdate(*time.Time) bool
+	SetProviders(*models.WidgetProviders)
+	Update(context.Context)
+	SetID(uint64)
+	HandleRequest(w http.ResponseWriter, r *http.Request)
+	SetHideHeader(bool)
 }
 
 type cacheType int
@@ -147,30 +149,28 @@ const (
 )
 
 type widgetBase struct {
-	ID                  uint64           `yaml:"-"`
-	Providers           *widgetProviders `yaml:"-"`
-	Type                string           `yaml:"type"`
-	Title               string           `yaml:"title"`
-	TitleURL            string           `yaml:"title-url"`
-	HideHeader          bool             `yaml:"hide-header"`
-	CSSClass            string           `yaml:"css-class"`
-	CustomCacheDuration durationField    `yaml:"cache"`
-	ContentAvailable    bool             `yaml:"-"`
-	WIP                 bool             `yaml:"-"`
-	Error               error            `yaml:"-"`
-	Notice              error            `yaml:"-"`
-	templateBuffer      bytes.Buffer     `yaml:"-"`
-	cacheDuration       time.Duration    `yaml:"-"`
-	cacheType           cacheType        `yaml:"-"`
-	nextUpdate          time.Time        `yaml:"-"`
-	updateRetriedTimes  int              `yaml:"-"`
+	ID                  uint64                  `yaml:"-"`
+	Providers           *models.WidgetProviders `yaml:"-"`
+	Type                string                  `yaml:"type"`
+	Title               string                  `yaml:"title"`
+	TitleURL            string                  `yaml:"title-url"`
+	HideHeader          bool                    `yaml:"hide-header"`
+	CSSClass            string                  `yaml:"css-class"`
+	CustomCacheDuration models.DurationField    `yaml:"cache"`
+	ContentAvailable    bool                    `yaml:"-"`
+	WIP                 bool                    `yaml:"-"`
+	Error               error                   `yaml:"-"`
+	Notice              error                   `yaml:"-"`
+	templateBuffer      bytes.Buffer            `yaml:"-"`
+	cacheDuration       time.Duration           `yaml:"-"`
+	cacheType           cacheType               `yaml:"-"`
+	nextUpdate          time.Time               `yaml:"-"`
+	updateRetriedTimes  int                     `yaml:"-"`
 }
 
-type widgetProviders struct {
-	assetResolver func(string) string
-}
+// widgetProviders moved to models package as WidgetProviders
 
-func (w *widgetBase) requiresUpdate(now *time.Time) bool {
+func (w *widgetBase) RequiresUpdate(now *time.Time) bool {
 	if w.cacheType == cacheTypeInfinite {
 		return false
 	}
@@ -186,7 +186,7 @@ func (w *widgetBase) IsWIP() bool {
 	return w.WIP
 }
 
-func (w *widgetBase) update(ctx context.Context) {
+func (w *widgetBase) Update(ctx context.Context) {
 
 }
 
@@ -194,15 +194,15 @@ func (w *widgetBase) GetID() uint64 {
 	return w.ID
 }
 
-func (w *widgetBase) setID(id uint64) {
+func (w *widgetBase) SetID(id uint64) {
 	w.ID = id
 }
 
-func (w *widgetBase) setHideHeader(value bool) {
+func (w *widgetBase) SetHideHeader(value bool) {
 	w.HideHeader = value
 }
 
-func (widget *widgetBase) handleRequest(w http.ResponseWriter, r *http.Request) {
+func (widget *widgetBase) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "not implemented", http.StatusNotImplemented)
 }
 
@@ -210,7 +210,7 @@ func (w *widgetBase) GetType() string {
 	return w.Type
 }
 
-func (w *widgetBase) setProviders(providers *widgetProviders) {
+func (w *widgetBase) SetProviders(providers *models.WidgetProviders) {
 	w.Providers = providers
 }
 

@@ -1,8 +1,10 @@
 package models
 
 import (
+	"context"
 	"html/template"
 	"sync"
+	"time"
 )
 
 type Config struct {
@@ -13,24 +15,19 @@ type Config struct {
 		AssetsPath string `yaml:"assets-path"`
 		BaseURL    string `yaml:"base-url"`
 	} `yaml:"server"`
-
 	Auth struct {
 		SecretKey string           `yaml:"secret-key"`
 		Users     map[string]*User `yaml:"users"`
 	} `yaml:"auth"`
-
 	Document struct {
 		Head template.HTML `yaml:"head"`
 	} `yaml:"document"`
-
 	Theme struct {
 		ThemeProperties `yaml:",inline"`
-		CustomCSSFile   string `yaml:"custom-css-file"`
-
-		DisablePicker bool                                     `yaml:"disable-picker"`
-		Presets       OrderedYAMLMap[string, *ThemeProperties] `yaml:"presets"`
+		CustomCSSFile   string                                   `yaml:"custom-css-file"`
+		DisablePicker   bool                                     `yaml:"disable-picker"`
+		Presets         OrderedYAMLMap[string, *ThemeProperties] `yaml:"presets"`
 	} `yaml:"theme"`
-
 	Branding struct {
 		HideFooter         bool          `yaml:"hide-footer"`
 		CustomFooter       template.HTML `yaml:"custom-footer"`
@@ -42,7 +39,6 @@ type Config struct {
 		AppIconURL         string        `yaml:"app-icon-url"`
 		AppBackgroundColor string        `yaml:"app-background-color"`
 	} `yaml:"branding"`
-
 	Pages []Page `yaml:"pages"`
 }
 
@@ -67,4 +63,40 @@ type Page struct {
 	} `yaml:"columns"`
 	PrimaryColumnIndex int8       `yaml:"-"`
 	Mu                 sync.Mutex `yaml:"-"`
+}
+
+// UpdateOutdatedWidgets checks all widgets on the page and triggers updates
+// for those that require it. This was moved here from app/glance.go because
+// methods on Page must be defined in the models package.
+func (p *Page) UpdateOutdatedWidgets() {
+	now := time.Now()
+	var wg sync.WaitGroup
+	ctx := context.Background()
+
+	for w := range p.HeadWidgets {
+		widget := p.HeadWidgets[w]
+		if !widget.RequiresUpdate(&now) {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			widget.Update(ctx)
+		}()
+	}
+
+	for c := range p.Columns {
+		for w := range p.Columns[c].Widgets {
+			widget := p.Columns[c].Widgets[w]
+			if !widget.RequiresUpdate(&now) {
+				continue
+			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				widget.Update(ctx)
+			}()
+		}
+	}
+	wg.Wait()
 }

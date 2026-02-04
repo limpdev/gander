@@ -4,9 +4,11 @@ import (
 	"errors"
 	"html/template"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
-var calendarWidgetTemplate = mustParseTemplate("calendar.html", "widget-base.html")
+var calendarWidgetTemplate = common.MustParseTemplate("calendar.html", "widget-base.html")
 
 var calendarWeekdaysToInt = map[string]time.Weekday{
 	"sunday":    time.Sunday,

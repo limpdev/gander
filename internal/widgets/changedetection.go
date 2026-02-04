@@ -9,9 +9,11 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
-var changeDetectionWidgetTemplate = mustParseTemplate("change-detection.html", "widget-base.html")
+var changeDetectionWidgetTemplate = common.MustParseTemplate("change-detection.html", "widget-base.html")
 
 type changeDetectionWidget struct {
 	widgetBase       `yaml:",inline"`
@@ -23,7 +25,7 @@ type changeDetectionWidget struct {
 	CollapseAfter    int                      `yaml:"collapse-after"`
 }
 
-func (widget *changeDetectionWidget) initialize() error {
+func (widget *changeDetectionWidget) Initialize() error {
 	widget.withTitle("Change Detection").withCacheDuration(1 * time.Hour)
 
 	if widget.Limit <= 0 {
@@ -41,7 +43,7 @@ func (widget *changeDetectionWidget) initialize() error {
 	return nil
 }
 
-func (widget *changeDetectionWidget) update(ctx context.Context) {
+func (widget *changeDetectionWidget) Update(ctx context.Context) {
 	if len(widget.WatchUUIDs) == 0 {
 		uuids, err := fetchWatchUUIDsFromChangeDetection(widget.InstanceURL, string(widget.Token))
 
@@ -167,7 +169,7 @@ func fetchWatchesFromChangeDetection(instanceURL string, requestedWatchIDs []str
 		if watchJson.Title != "" {
 			watch.Title = watchJson.Title
 		} else {
-			watch.Title = strings.TrimPrefix(strings.Trim(stripURLScheme(watchJson.URL), "/"), "www.")
+			watch.Title = strings.TrimPrefix(strings.Trim(common.StripURLScheme(watchJson.URL), "/"), "www.")
 		}
 
 		if watchJson.PreviousHash != "" {

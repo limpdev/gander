@@ -255,7 +255,7 @@ func HslToHex(h, s, l float64) string {
 
 func MustParseTemplate(primary string, dependencies ...string) *template.Template {
 	t, err := template.New(primary).
-		Funcs(globalTemplateFunctions).
+		Funcs(web.GlobalTemplateFunctions).
 		ParseFS(web.TemplateFS, append([]string{primary}, dependencies...)...)
 
 	if err != nil {
@@ -281,12 +281,12 @@ func formatApproxNumber(count int) string {
 	return strconv.FormatFloat(float64(count)/1_000_000, 'f', 1, 64) + "m"
 }
 
-func dynamicRelativeTimeAttrs(t interface{ Unix() int64 }) template.HTMLAttr {
+func DynamicRelativeTimeAttrs(t interface{ Unix() int64 }) template.HTMLAttr {
 	return template.HTMLAttr(`data-dynamic-relative-time="` + strconv.FormatInt(t.Unix(), 10) + `"`)
 }
 
 var intl = message.NewPrinter(language.English)
-var globalTemplateFunctions = template.FuncMap{
+var GlobalTemplateFunctions = template.FuncMap{
 	"formatApproxNumber": formatApproxNumber,
 	"formatNumber":       intl.Sprint,
 	"safeCSS": func(str string) template.CSS {
@@ -307,7 +307,7 @@ var globalTemplateFunctions = template.FuncMap{
 	"formatPriceWithPrecision": func(precision int, price float64) string {
 		return intl.Sprintf("%."+strconv.Itoa(precision)+"f", price)
 	},
-	"dynamicRelativeTimeAttrs": dynamicRelativeTimeAttrs,
+	"dynamicRelativeTimeAttrs": DynamicRelativeTimeAttrs,
 	"formatServerMegabytes": func(mb uint64) template.HTML {
 		var value string
 		var label string

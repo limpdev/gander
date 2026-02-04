@@ -4,52 +4,55 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"github.com/limpdev/gander/internal/loader"
+	"github.com/limpdev/gander/internal/models"
 )
 
 type containerWidgetBase struct {
-	Widgets widgets `yaml:"widgets"`
+	Widgets models.Widgets `yaml:"widgets"`
 }
 
-func (widget *containerWidgetBase) _initializeWidgets() error {
+func (widget *containerWidgetBase) InitializeWidgets() error {
 	for i := range widget.Widgets {
-		if err := widget.Widgets[i].initialize(); err != nil {
-			return formatWidgetInitError(err, widget.Widgets[i])
+		if err := widget.Widgets[i].Initialize(); err != nil {
+			return loader.FormatWidgetInitError(err, widget.Widgets[i])
 		}
 	}
 
 	return nil
 }
 
-func (widget *containerWidgetBase) _update(ctx context.Context) {
+func (widget *containerWidgetBase) Update(ctx context.Context) {
 	var wg sync.WaitGroup
 	now := time.Now()
 
 	for w := range widget.Widgets {
 		widget := widget.Widgets[w]
 
-		if !widget.requiresUpdate(&now) {
+		if !widget.RequiresUpdate(&now) {
 			continue
 		}
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			widget.update(ctx)
+			widget.Update(ctx)
 		}()
 	}
 
 	wg.Wait()
 }
 
-func (widget *containerWidgetBase) _setProviders(providers *widgetProviders) {
+func (widget *containerWidgetBase) SetProviders(providers *models.WidgetProviders) {
 	for i := range widget.Widgets {
-		widget.Widgets[i].setProviders(providers)
+		widget.Widgets[i].SetProviders(providers)
 	}
 }
 
-func (widget *containerWidgetBase) _requiresUpdate(now *time.Time) bool {
+func (widget *containerWidgetBase) RequiresUpdate(now *time.Time) bool {
 	for i := range widget.Widgets {
-		if widget.Widgets[i].requiresUpdate(now) {
+		if widget.Widgets[i].RequiresUpdate(now) {
 			return true
 		}
 	}

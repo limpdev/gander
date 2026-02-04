@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"html/template"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
-var clockWidgetTemplate = mustParseTemplate("clock.html", "widget-base.html")
+var clockWidgetTemplate = common.MustParseTemplate("clock.html", "widget-base.html")
 
 type clockWidget struct {
 	widgetBase `yaml:",inline"`
@@ -19,7 +21,7 @@ type clockWidget struct {
 	} `yaml:"timezones"`
 }
 
-func (widget *clockWidget) initialize() error {
+func (widget *clockWidget) Initialize() error {
 	widget.withTitle("Clock").withError(nil)
 
 	if widget.HourFormat == "" {

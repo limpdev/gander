@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
 type hackerNewsWidget struct {
@@ -22,7 +24,7 @@ type hackerNewsWidget struct {
 	ShowThumbnails      bool          `yaml:"-"`
 }
 
-func (widget *hackerNewsWidget) initialize() error {
+func (widget *hackerNewsWidget) Initialize() error {
 	widget.
 		withTitle("Hacker News").
 		withTitleURL("https://news.ycombinator.com/").
@@ -43,7 +45,7 @@ func (widget *hackerNewsWidget) initialize() error {
 	return nil
 }
 
-func (widget *hackerNewsWidget) update(ctx context.Context) {
+func (widget *hackerNewsWidget) Update(ctx context.Context) {
 	posts, err := fetchHackerNewsPosts(widget.SortBy, 40, widget.CommentsUrlTemplate)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
@@ -120,7 +122,7 @@ func fetchHackerNewsPostsFromIds(postIds []int, commentsUrlTemplate string) (for
 			Title:           results[i].Title,
 			DiscussionUrl:   commentsUrl,
 			TargetUrl:       results[i].TargetUrl,
-			TargetUrlDomain: extractDomainFromUrl(results[i].TargetUrl),
+			TargetUrlDomain: common.ExtractDomainFromUrl(results[i].TargetUrl),
 			CommentCount:    results[i].CommentCount,
 			Score:           results[i].Score,
 			TimePosted:      time.Unix(results[i].TimePosted, 0),

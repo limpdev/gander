@@ -10,10 +10,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
 const httpTestRequestTimeout = 15 * time.Second
 
+var defaultHTTPClient = &http.Client{
+	Timeout: httpTestRequestTimeout,
+}
 var diagnosticSteps = []diagnosticStep{
 	{
 		name: "resolve cloudflare.com through Cloudflare DoH",
@@ -104,13 +109,11 @@ var diagnosticSteps = []diagnosticStep{
 
 func runDiagnostic() {
 	fmt.Println("```")
-	fmt.Println("Glance version: " + buildVersion)
+	fmt.Println("Glance version: " + BuildVersion)
 	fmt.Println("Go version: " + runtime.Version())
 	fmt.Printf("Platform: %s / %s / %d CPUs\n", runtime.GOOS, runtime.GOARCH, runtime.NumCPU())
-	fmt.Println("In Docker container: " + ternary(isRunningInsideDockerContainer(), "yes", "no"))
-
+	fmt.Println("In Docker container: " + common.Ternary(common.IsRunningInsideDockerContainer(), "yes", "no"))
 	fmt.Printf("\nChecking network connectivity, this may take up to %d seconds...\n\n", int(httpTestRequestTimeout.Seconds()))
-
 	var wg sync.WaitGroup
 	for i := range diagnosticSteps {
 		step := &diagnosticSteps[i]
@@ -123,22 +126,18 @@ func runDiagnostic() {
 		}()
 	}
 	wg.Wait()
-
 	for _, step := range diagnosticSteps {
 		var extraInfo string
-
 		if step.extraInfo != "" {
 			extraInfo = "| " + step.extraInfo + " "
 		}
-
 		fmt.Printf(
 			"%s %s %s| %dms\n",
-			ternary(step.err == nil, "✓ Can", "✗ Can't"),
+			common.Ternary(step.err == nil, "✓ Can", "✗ Can't"),
 			step.name,
 			extraInfo,
 			step.elapsed.Milliseconds(),
 		)
-
 		if step.err != nil {
 			fmt.Printf("└╴ error: %v\n", step.err)
 		}
@@ -157,27 +156,22 @@ type diagnosticStep struct {
 func testHttpRequest(method, url string, expectedStatusCode int) (string, error) {
 	return testHttpRequestWithHeaders(method, url, nil, expectedStatusCode)
 }
-
 func testHttpRequestWithHeaders(method, url string, headers map[string]string, expectedStatusCode int) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), httpTestRequestTimeout)
 	defer cancel()
-
 	request, _ := http.NewRequestWithContext(ctx, method, url, nil)
 	for key, value := range headers {
 		request.Header.Add(key, value)
 	}
-
 	response, err := defaultHTTPClient.Do(request)
 	if err != nil {
 		return "", err
 	}
 	defer response.Body.Close()
-
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return "", err
 	}
-
 	printableBody := strings.ReplaceAll(string(body), "\n", "")
 	if len(printableBody) > 50 {
 		printableBody = printableBody[:50] + "..."
@@ -185,25 +179,19 @@ func testHttpRequestWithHeaders(method, url string, headers map[string]string, e
 	if len(printableBody) > 0 {
 		printableBody = ", " + printableBody
 	}
-
 	extraInfo := fmt.Sprintf("%d bytes%s", len(body), printableBody)
-
 	if response.StatusCode != expectedStatusCode {
 		return extraInfo, fmt.Errorf("expected status code %d, got %d", expectedStatusCode, response.StatusCode)
 	}
-
 	return extraInfo, nil
 }
-
 func testDNSResolution(domain string) (string, error) {
 	ips, err := net.LookupIP(domain)
-
 	var ipStrings []string
 	if err == nil {
 		for i := range ips {
 			ipStrings = append(ipStrings, ips[i].String())
 		}
 	}
-
 	return strings.Join(ipStrings, ", "), err
 }

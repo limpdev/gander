@@ -4,9 +4,11 @@ import (
 	"context"
 	"html/template"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
-var oldCalendarWidgetTemplate = mustParseTemplate("old-calendar.html", "widget-base.html")
+var oldCalendarWidgetTemplate = common.MustParseTemplate("old-calendar.html", "widget-base.html")
 
 type oldCalendarWidget struct {
 	widgetBase  `yaml:",inline"`
@@ -14,13 +16,13 @@ type oldCalendarWidget struct {
 	StartSunday bool `yaml:"start-sunday"`
 }
 
-func (widget *oldCalendarWidget) initialize() error {
+func (widget *oldCalendarWidget) Initialize() error {
 	widget.withTitle("Calendar").withCacheOnTheHour()
 
 	return nil
 }
 
-func (widget *oldCalendarWidget) update(ctx context.Context) {
+func (widget *oldCalendarWidget) Update(ctx context.Context) {
 	widget.Calendar = newCalendar(time.Now(), widget.StartSunday)
 	widget.withError(nil).scheduleNextUpdate()
 }

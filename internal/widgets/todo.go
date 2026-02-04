@@ -2,9 +2,11 @@ package widgets
 
 import (
 	"html/template"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
-var todoWidgetTemplate = mustParseTemplate("todo.html", "widget-base.html")
+var todoWidgetTemplate = common.MustParseTemplate("todo.html", "widget-base.html")
 
 type todoWidget struct {
 	widgetBase `yaml:",inline"`
@@ -12,7 +14,7 @@ type todoWidget struct {
 	TodoID     string        `yaml:"id"`
 }
 
-func (widget *todoWidget) initialize() error {
+func (widget *todoWidget) Initialize() error {
 	widget.withTitle("To-do").withError(nil)
 
 	widget.cachedHTML = widget.renderTemplate(widget, todoWidgetTemplate)

@@ -12,10 +12,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/limpdev/gander/internal/common"
+
 	_ "time/tzdata"
 )
 
-var weatherWidgetTemplate = mustParseTemplate("weather.html", "widget-base.html")
+var weatherWidgetTemplate = common.MustParseTemplate("weather.html", "widget-base.html")
 
 type weatherWidget struct {
 	widgetBase   `yaml:",inline"`
@@ -32,7 +34,7 @@ type weatherWidget struct {
 var timeLabels12h = [12]string{"2am", "4am", "6am", "8am", "10am", "12pm", "2pm", "4pm", "6pm", "8pm", "10pm", "12am"}
 var timeLabels24h = [12]string{"02:00", "04:00", "06:00", "08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00", "22:00", "00:00"}
 
-func (widget *weatherWidget) initialize() error {
+func (widget *weatherWidget) Initialize() error {
 	widget.withTitle("Weather").withCacheOnTheHour()
 
 	if widget.Location == "" {
@@ -56,7 +58,7 @@ func (widget *weatherWidget) initialize() error {
 	return nil
 }
 
-func (widget *weatherWidget) update(ctx context.Context) {
+func (widget *weatherWidget) Update(ctx context.Context) {
 	if widget.Place == nil {
 		place, err := fetchOpenMeteoPlaceFromName(widget.Location)
 		if err != nil {

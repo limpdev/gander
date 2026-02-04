@@ -9,9 +9,11 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
-var twitchGamesWidgetTemplate = mustParseTemplate("twitch-games-list.html", "widget-base.html")
+var twitchGamesWidgetTemplate = common.MustParseTemplate("twitch-games-list.html", "widget-base.html")
 
 type twitchGamesWidget struct {
 	widgetBase    `yaml:",inline"`
@@ -21,7 +23,7 @@ type twitchGamesWidget struct {
 	CollapseAfter int              `yaml:"collapse-after"`
 }
 
-func (widget *twitchGamesWidget) initialize() error {
+func (widget *twitchGamesWidget) Initialize() error {
 	widget.
 		withTitle("Top games on Twitch").
 		withTitleURL("https://www.twitch.tv/directory?sort=VIEWER_COUNT").
@@ -38,7 +40,7 @@ func (widget *twitchGamesWidget) initialize() error {
 	return nil
 }
 
-func (widget *twitchGamesWidget) update(ctx context.Context) {
+func (widget *twitchGamesWidget) Update(ctx context.Context) {
 	categories, err := fetchTopGamesFromTwitch(widget.Exclude, widget.Limit)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {

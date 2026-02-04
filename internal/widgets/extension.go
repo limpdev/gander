@@ -11,24 +11,27 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
+	"github.com/limpdev/gander/internal/models"
 )
 
-var extensionWidgetTemplate = mustParseTemplate("extension.html", "widget-base.html")
+var extensionWidgetTemplate = common.MustParseTemplate("extension.html", "widget-base.html")
 
 const extensionWidgetDefaultTitle = "Extension"
 
 type extensionWidget struct {
 	widgetBase          `yaml:",inline"`
-	URL                 string               `yaml:"url"`
-	FallbackContentType string               `yaml:"fallback-content-type"`
-	Parameters          queryParametersField `yaml:"parameters"`
-	Headers             map[string]string    `yaml:"headers"`
-	AllowHtml           bool                 `yaml:"allow-potentially-dangerous-html"`
-	Extension           extension            `yaml:"-"`
-	cachedHTML          template.HTML        `yaml:"-"`
+	URL                 string                      `yaml:"url"`
+	FallbackContentType string                      `yaml:"fallback-content-type"`
+	Parameters          models.QueryParametersField `yaml:"parameters"`
+	Headers             map[string]string           `yaml:"headers"`
+	AllowHtml           bool                        `yaml:"allow-potentially-dangerous-html"`
+	Extension           extension                   `yaml:"-"`
+	cachedHTML          template.HTML               `yaml:"-"`
 }
 
-func (widget *extensionWidget) initialize() error {
+func (widget *extensionWidget) Initialize() error {
 	widget.withTitle(extensionWidgetDefaultTitle).withCacheDuration(time.Minute * 30)
 
 	if widget.URL == "" {
@@ -42,7 +45,7 @@ func (widget *extensionWidget) initialize() error {
 	return nil
 }
 
-func (widget *extensionWidget) update(ctx context.Context) {
+func (widget *extensionWidget) Update(ctx context.Context) {
 	extension, err := fetchExtension(extensionRequestOptions{
 		URL:                 widget.URL,
 		FallbackContentType: widget.FallbackContentType,
@@ -89,11 +92,11 @@ const (
 )
 
 type extensionRequestOptions struct {
-	URL                 string               `yaml:"url"`
-	FallbackContentType string               `yaml:"fallback-content-type"`
-	Parameters          queryParametersField `yaml:"parameters"`
-	Headers             map[string]string    `yaml:"headers"`
-	AllowHtml           bool                 `yaml:"allow-potentially-dangerous-html"`
+	URL                 string                      `yaml:"url"`
+	FallbackContentType string                      `yaml:"fallback-content-type"`
+	Parameters          models.QueryParametersField `yaml:"parameters"`
+	Headers             map[string]string           `yaml:"headers"`
+	AllowHtml           bool                        `yaml:"allow-potentially-dangerous-html"`
 }
 
 type extension struct {
@@ -119,7 +122,7 @@ func convertExtensionContent(options extensionRequestOptions, content []byte, co
 func fetchExtension(options extensionRequestOptions) (extension, error) {
 	request, _ := http.NewRequest("GET", options.URL, nil)
 	if len(options.Parameters) > 0 {
-		request.URL.RawQuery = options.Parameters.toQueryString()
+		request.URL.RawQuery = options.Parameters.ToQueryString()
 	}
 
 	for key, value := range options.Headers {
@@ -162,7 +165,7 @@ func fetchExtension(options extensionRequestOptions) (extension, error) {
 		}
 	}
 
-	if stringToBool(response.Header.Get(extensionHeaderContentFrameless)) {
+	if common.StringToBool(response.Header.Get(extensionHeaderContentFrameless)) {
 		extension.Frameless = true
 	}
 

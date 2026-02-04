@@ -14,9 +14,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
-var dnsStatsWidgetTemplate = mustParseTemplate("dns-stats.html", "widget-base.html")
+var dnsStatsWidgetTemplate = common.MustParseTemplate("dns-stats.html", "widget-base.html")
 
 const (
 	dnsStatsBars            = 8
@@ -60,7 +62,7 @@ func makeDNSWidgetTimeLabels(format string) [8]string {
 	return labels
 }
 
-func (widget *dnsStatsWidget) initialize() error {
+func (widget *dnsStatsWidget) Initialize() error {
 	titleURL := strings.TrimRight(widget.URL, "/")
 	switch widget.Service {
 	case dnsServicePihole, dnsServicePiholeV6:
@@ -84,7 +86,7 @@ func (widget *dnsStatsWidget) initialize() error {
 	return nil
 }
 
-func (widget *dnsStatsWidget) update(ctx context.Context) {
+func (widget *dnsStatsWidget) Update(ctx context.Context) {
 	var stats *dnsStats
 	var err error
 
@@ -168,7 +170,7 @@ func fetchAdguardStats(instanceURL string, allowInsecure bool, username, passwor
 
 	request.SetBasicAuth(username, password)
 
-	var client = ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	var client = common.Ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
 	responseJson, err := decodeJsonFromRequest[adguardStatsResponse](client, request)
 	if err != nil {
 		return nil, err
@@ -324,7 +326,7 @@ func fetchPihole5Stats(instanceURL string, allowInsecure bool, token string, noG
 		return nil, err
 	}
 
-	var client = ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	var client = common.Ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
 	responseJson, err := decodeJsonFromRequest[pihole5StatsResponse](client, request)
 	if err != nil {
 		return nil, err
@@ -418,7 +420,7 @@ func fetchPiholeStats(
 	includeTopDomains bool,
 ) (*dnsStats, string, error) {
 	instanceURL = strings.TrimRight(instanceURL, "/")
-	var client = ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	var client = common.Ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
 
 	fetchNewSessionID := func() error {
 		newSessionID, err := fetchPiholeSessionID(instanceURL, client, password)
@@ -612,7 +614,7 @@ func fetchPiholeStats(
 		stats.TopBlockedDomains = domains[:min(len(domains), 5)]
 	}
 
-	return stats, sessionID, ternary(partialContent, errPartialContent, nil)
+	return stats, sessionID, common.Ternary(partialContent, errPartialContent, nil)
 }
 
 func fetchPiholeSessionID(instanceURL string, client *http.Client, password string) (string, error) {

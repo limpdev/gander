@@ -4,9 +4,12 @@ import (
 	"context"
 	"html/template"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
+	"github.com/limpdev/gander/internal/models"
 )
 
-var splitColumnWidgetTemplate = mustParseTemplate("split-column.html", "widget-base.html")
+var splitColumnWidgetTemplate = common.MustParseTemplate("split-column.html", "widget-base.html")
 
 type splitColumnWidget struct {
 	widgetBase          `yaml:",inline"`
@@ -14,10 +17,10 @@ type splitColumnWidget struct {
 	MaxColumns          int `yaml:"max-columns"`
 }
 
-func (widget *splitColumnWidget) initialize() error {
-	widget.withError(nil).withTitle("Split Column").setHideHeader(true)
+func (widget *splitColumnWidget) Initialize() error {
+	widget.withError(nil).withTitle("Split Column").SetHideHeader(true)
 
-	if err := widget.containerWidgetBase._initializeWidgets(); err != nil {
+	if err := widget.containerWidgetBase.InitializeWidgets(); err != nil {
 		return err
 	}
 
@@ -28,16 +31,17 @@ func (widget *splitColumnWidget) initialize() error {
 	return nil
 }
 
-func (widget *splitColumnWidget) update(ctx context.Context) {
-	widget.containerWidgetBase._update(ctx)
+func (widget *splitColumnWidget) Update(ctx context.Context) {
+	widget.containerWidgetBase.Update(ctx)
 }
 
-func (widget *splitColumnWidget) setProviders(providers *widgetProviders) {
-	widget.containerWidgetBase._setProviders(providers)
+func (widget *splitColumnWidget) SetProviders(providers *models.WidgetProviders) {
+	widget.widgetBase.SetProviders(providers)
+	widget.containerWidgetBase.SetProviders(providers)
 }
 
-func (widget *splitColumnWidget) requiresUpdate(now *time.Time) bool {
-	return widget.containerWidgetBase._requiresUpdate(now)
+func (widget *splitColumnWidget) RequiresUpdate(now *time.Time) bool {
+	return widget.containerWidgetBase.RequiresUpdate(now)
 }
 
 func (widget *splitColumnWidget) Render() template.HTML {

@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"html/template"
 	"strings"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
-var searchWidgetTemplate = mustParseTemplate("search.html", "widget-base.html")
+var searchWidgetTemplate = common.MustParseTemplate("search.html", "widget-base.html")
 
 type SearchBang struct {
 	Title    string
@@ -36,11 +38,11 @@ var searchEngines = map[string]string{
 	"google":     "https://www.google.com/search?q={QUERY}",
 	"bing":       "https://www.bing.com/search?q={QUERY}",
 	"perplexity": "https://www.perplexity.ai/search?q={QUERY}",
-	"kagi": "https://kagi.com/search?q={QUERY}",
-	"startpage": "https://www.startpage.com/search?q={QUERY}",
+	"kagi":       "https://kagi.com/search?q={QUERY}",
+	"startpage":  "https://www.startpage.com/search?q={QUERY}",
 }
 
-func (widget *searchWidget) initialize() error {
+func (widget *searchWidget) Initialize() error {
 	widget.withTitle("Search").withError(nil)
 
 	if widget.SearchEngine == "" {

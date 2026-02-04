@@ -10,9 +10,11 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
-var marketsWidgetTemplate = mustParseTemplate("markets.html", "widget-base.html")
+var marketsWidgetTemplate = common.MustParseTemplate("markets.html", "widget-base.html")
 
 type marketsWidget struct {
 	widgetBase         `yaml:",inline"`
@@ -24,7 +26,7 @@ type marketsWidget struct {
 	Markets            marketList      `yaml:"-"`
 }
 
-func (widget *marketsWidget) initialize() error {
+func (widget *marketsWidget) Initialize() error {
 	widget.withTitle("Markets").withCacheDuration(time.Hour)
 
 	// legacy support, remove in v0.10.0
@@ -47,7 +49,7 @@ func (widget *marketsWidget) initialize() error {
 	return nil
 }
 
-func (widget *marketsWidget) update(ctx context.Context) {
+func (widget *marketsWidget) Update(ctx context.Context) {
 	markets, err := fetchMarketsDataFromYahoo(widget.MarketRequests)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
@@ -167,7 +169,7 @@ func fetchMarketsDataFromYahoo(marketRequests []marketRequest) (marketList, erro
 			previous = prices[len(prices)-2]
 		}
 
-		points := svgPolylineCoordsFromYValues(100, 50, maybeCopySliceWithoutZeroValues(prices))
+		points := common.SvgPolylineCoordsFromYValues(100, 50, common.MaybeCopySliceWithoutZeroValues(prices))
 
 		currency, exists := currencyToSymbol[strings.ToUpper(result.Meta.Currency)]
 		if !exists {
@@ -179,11 +181,11 @@ func fetchMarketsDataFromYahoo(marketRequests []marketRequest) (marketList, erro
 			Price:         result.Meta.RegularMarketPrice,
 			Currency:      currency,
 			PriceHint:     result.Meta.PriceHint,
-			Name: ternary(marketRequests[i].CustomName == "",
+			Name: common.Ternary(marketRequests[i].CustomName == "",
 				result.Meta.ShortName,
 				marketRequests[i].CustomName,
 			),
-			PercentChange: percentChange(
+			PercentChange: common.PercentChange(
 				result.Meta.RegularMarketPrice,
 				previous,
 			),

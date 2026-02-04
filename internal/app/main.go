@@ -9,11 +9,11 @@ import (
 
 	"github.com/limpdev/gander/internal/auth"
 	"github.com/limpdev/gander/internal/loader"
-	"github.com/limpdev/gander/internal/utils"
+	"github.com/limpdev/gander/internal/web"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var BuildVersion = "dev"
+var BuildVersion = "LIMP"
 
 func Main() int {
 	options, err := ParseCliOptions()
@@ -21,7 +21,6 @@ func Main() int {
 		fmt.Println(err)
 		return 1
 	}
-
 	switch options.Intent {
 	case IntentVersionPrint:
 		fmt.Println(BuildVersion)
@@ -30,69 +29,60 @@ func Main() int {
 		if serveUpdateNoticeIfConfigLocationNotMigrated(options.ConfigPath) {
 			return 1
 		}
-
 		if err := serveApp(options.ConfigPath); err != nil {
 			fmt.Println(err)
 			return 1
 		}
 	case IntentConfigValidate:
-		contents, _, err := utils.ParseYAMLIncludes(options.ConfigPath)
+		contents, _, err := loader.ParseYAMLIncludes(options.ConfigPath)
 		if err != nil {
 			fmt.Printf("Could not parse config file: %v\n", err)
 			return 1
 		}
-
-		if _, err := utils.NewConfigFromYAML(contents); err != nil {
+		if _, err := loader.NewConfigFromYAML(contents); err != nil {
 			fmt.Printf("Config file is invalid: %v\n", err)
 			return 1
 		}
 	case IntentConfigPrint:
-		contents, _, err := utils.ParseYAMLIncludes(options.ConfigPath)
+		contents, _, err := loader.ParseYAMLIncludes(options.ConfigPath)
 		if err != nil {
 			fmt.Printf("Could not parse config file: %v\n", err)
 			return 1
 		}
-
 		fmt.Println(string(contents))
 	case IntentSensorsPrint:
-		return int(IntentSensorsPrint)
+		return int(CliSensorsPrint())
 	case IntentMountpointInfo:
-		return IntentMountpointInfo(options.Args[1])
+		return CliMountpointInfo(options.Args[1])
 	case IntentDiagnose:
-		return IntentDiagnose()
+		runDiagnostic()
+		return 0
 	case IntentSecretMake:
 		key, err := auth.MakeAuthSecretKey(auth.AUTH_SECRET_KEY_LENGTH)
 		if err != nil {
 			fmt.Printf("Failed to make secret key: %v\n", err)
 			return 1
 		}
-
 		fmt.Println(key)
 	case IntentPasswordHash:
 		password := options.Args[1]
-
 		if password == "" {
 			fmt.Println("Password cannot be empty")
 			return 1
 		}
-
 		if len(password) < 6 {
 			fmt.Println("Password must be at least 6 characters long")
 			return 1
 		}
-
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if err != nil {
 			fmt.Printf("Failed to hash password: %v\n", err)
 			return 1
 		}
-
 		fmt.Println(string(hashedPassword))
 	}
-
 	return 0
 }
-
 func serveApp(configPath string) error {
 	// TODO: refactor if this gets any more complex, the current implementation is
 	// difficult to reason about due to all of the callbacks and simultaneous operations,
@@ -100,123 +90,97 @@ func serveApp(configPath string) error {
 	exitChannel := make(chan struct{})
 	hadValidConfigOnStartup := false
 	var stopServer func() error
-
 	onChange := func(newContents []byte) {
 		if stopServer != nil {
 			log.Println("Config file changed, reloading...")
 		}
-
-		config, err := newConfigFromYAML(newContents)
+		config, err := loader.NewConfigFromYAML(newContents)
 		if err != nil {
 			log.Printf("Config has errors: %v", err)
-
 			if !hadValidConfigOnStartup {
 				close(exitChannel)
 			}
-
 			return
 		}
-
-		app, err := newApplication(config)
+		app, err := NewApplication(config)
 		if err != nil {
 			log.Printf("Failed to create application: %v", err)
-
 			if !hadValidConfigOnStartup {
 				close(exitChannel)
 			}
-
 			return
 		}
-
 		if !hadValidConfigOnStartup {
 			hadValidConfigOnStartup = true
 		}
-
 		if stopServer != nil {
 			if err := stopServer(); err != nil {
 				log.Printf("Error while trying to stop server: %v", err)
 			}
 		}
-
 		go func() {
 			var startServer func() error
 			startServer, stopServer = app.server()
-
 			if err := startServer(); err != nil {
 				log.Printf("Failed to start server: %v", err)
 			}
 		}()
 	}
-
 	onErr := func(err error) {
 		log.Printf("Error watching config files: %v", err)
 	}
-
 	configContents, configIncludes, err := loader.ParseYAMLIncludes(configPath)
 	if err != nil {
 		return fmt.Errorf("parsing config: %w", err)
 	}
-
 	stopWatching, err := loader.ConfigFilesWatcher(configPath, configContents, configIncludes, onChange, onErr)
 	if err == nil {
 		defer stopWatching()
 	} else {
 		log.Printf("Error starting file watcher, config file changes will require a manual restart. (%v)", err)
-
 		config, err := loader.NewConfigFromYAML(configContents)
 		if err != nil {
 			return fmt.Errorf("validating config file: %w", err)
 		}
-
-		app, err := loader.NewApplication(config)
+		app, err := NewApplication(config)
 		if err != nil {
 			return fmt.Errorf("creating application: %w", err)
 		}
-
 		startServer, _ := app.server()
 		if err := startServer(); err != nil {
 			return fmt.Errorf("starting server: %w", err)
 		}
 	}
-
 	<-exitChannel
 	return nil
 }
-
 func serveUpdateNoticeIfConfigLocationNotMigrated(configPath string) bool {
-	// if !isRunningInsideDockerContainer() {
-	// 	return false
+	// if !IsRunningInsideDockerContainer() {
+	// return false
 	// }
-
 	if _, err := os.Stat(configPath); err == nil {
 		return false
 	}
-
 	// glance.yml wasn't mounted to begin with or was incorrectly mounted as a directory
 	if stat, err := os.Stat("glance.yml"); err != nil || stat.IsDir() {
 		return false
 	}
-
-	templateFile, _ := auth.TemplateFS.Open("v0.7-update-notice-page.html")
+	templateFile, _ := web.TemplateFS.Open("v0.7-update-notice-page.html")
 	bodyContents, _ := io.ReadAll(templateFile)
-
 	fmt.Println("!!! WARNING !!!")
 	fmt.Println("The default location of glance.yml in the Docker image has changed starting from v0.7.0.")
 	fmt.Println("Please see https://github.com/glanceapp/glance/blob/main/docs/v0.7.0-upgrade.md for more information.")
-
 	mux := http.NewServeMux()
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(web.StaticFS))))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(bodyContents))
 	})
-
 	server := http.Server{
 		Addr:    ":8080",
 		Handler: mux,
 	}
 	server.ListenAndServe()
-
 	return true
 }

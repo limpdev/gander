@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
 type lobstersWidget struct {
@@ -20,7 +22,7 @@ type lobstersWidget struct {
 	ShowThumbnails bool          `yaml:"-"`
 }
 
-func (widget *lobstersWidget) initialize() error {
+func (widget *lobstersWidget) Initialize() error {
 	widget.withTitle("Lobsters").withCacheDuration(time.Hour)
 
 	if widget.InstanceURL == "" {
@@ -44,7 +46,7 @@ func (widget *lobstersWidget) initialize() error {
 	return nil
 }
 
-func (widget *lobstersWidget) update(ctx context.Context) {
+func (widget *lobstersWidget) Update(ctx context.Context) {
 	posts, err := fetchLobstersPosts(widget.CustomURL, widget.InstanceURL, widget.SortBy, widget.Tags)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
@@ -94,7 +96,7 @@ func fetchLobstersPostsFromFeed(feedUrl string) (forumPostList, error) {
 			Title:           feed[i].Title,
 			DiscussionUrl:   feed[i].CommentsURL,
 			TargetUrl:       feed[i].URL,
-			TargetUrlDomain: extractDomainFromUrl(feed[i].URL),
+			TargetUrlDomain: common.ExtractDomainFromUrl(feed[i].URL),
 			CommentCount:    feed[i].CommentCount,
 			Score:           feed[i].Score,
 			TimePosted:      createdAt,

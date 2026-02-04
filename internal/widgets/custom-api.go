@@ -18,23 +18,26 @@ import (
 	"sync"
 	"time"
 
+	"github.com/limpdev/gander/internal/common"
+	"github.com/limpdev/gander/internal/models"
+	"github.com/limpdev/gander/internal/web"
 	"github.com/tidwall/gjson"
 )
 
-var customAPIWidgetTemplate = mustParseTemplate("custom-api.html", "widget-base.html")
+var customAPIWidgetTemplate = common.MustParseTemplate("custom-api.html", "widget-base.html")
 
 // Needs to be exported for the YAML unmarshaler to work
 type CustomAPIRequest struct {
-	URL                string               `yaml:"url"`
-	AllowInsecure      bool                 `yaml:"allow-insecure"`
-	Headers            map[string]string    `yaml:"headers"`
-	Parameters         queryParametersField `yaml:"parameters"`
-	Method             string               `yaml:"method"`
-	BodyType           string               `yaml:"body-type"`
-	Body               any                  `yaml:"body"`
-	SkipJSONValidation bool                 `yaml:"skip-json-validation"`
-	bodyReader         io.ReadSeeker        `yaml:"-"`
-	httpRequest        *http.Request        `yaml:"-"`
+	URL                string                      `yaml:"url"`
+	AllowInsecure      bool                        `yaml:"allow-insecure"`
+	Headers            map[string]string           `yaml:"headers"`
+	Parameters         models.QueryParametersField `yaml:"parameters"`
+	Method             string                      `yaml:"method"`
+	BodyType           string                      `yaml:"body-type"`
+	Body               any                         `yaml:"body"`
+	SkipJSONValidation bool                        `yaml:"skip-json-validation"`
+	bodyReader         io.ReadSeeker               `yaml:"-"`
+	httpRequest        *http.Request               `yaml:"-"`
 }
 
 type customAPIWidget struct {
@@ -48,15 +51,15 @@ type customAPIWidget struct {
 	CompiledHTML      template.HTML                `yaml:"-"`
 }
 
-func (widget *customAPIWidget) initialize() error {
+func (widget *customAPIWidget) Initialize() error {
 	widget.withTitle("Custom API").withCacheDuration(1 * time.Hour)
 
-	if err := widget.CustomAPIRequest.initialize(); err != nil {
+	if err := widget.CustomAPIRequest.Initialize(); err != nil {
 		return fmt.Errorf("initializing primary request: %v", err)
 	}
 
 	for key := range widget.Subrequests {
-		if err := widget.Subrequests[key].initialize(); err != nil {
+		if err := widget.Subrequests[key].Initialize(); err != nil {
 			return fmt.Errorf("initializing subrequest %q: %v", key, err)
 		}
 	}
@@ -75,7 +78,7 @@ func (widget *customAPIWidget) initialize() error {
 	return nil
 }
 
-func (widget *customAPIWidget) update(ctx context.Context) {
+func (widget *customAPIWidget) Update(ctx context.Context) {
 	compiledHTML, err := fetchAndRenderCustomAPIRequest(
 		widget.CustomAPIRequest, widget.Subrequests, widget.Options, widget.compiledTemplate,
 	)
@@ -131,7 +134,7 @@ func customAPIGetOptionOrDefault[T any](o customAPIOptions, key string, defaultV
 	return defaultValue
 }
 
-func (req *CustomAPIRequest) initialize() error {
+func (req *CustomAPIRequest) Initialize() error {
 	if req == nil || req.URL == "" {
 		return nil
 	}
@@ -176,7 +179,7 @@ func (req *CustomAPIRequest) initialize() error {
 	}
 
 	if len(req.Parameters) > 0 {
-		httpReq.URL.RawQuery = req.Parameters.toQueryString()
+		httpReq.URL.RawQuery = req.Parameters.ToQueryString()
 	}
 
 	if req.BodyType == "json" {
@@ -240,7 +243,7 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 		req.bodyReader.Seek(0, io.SeekStart)
 	}
 
-	client := ternary(req.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := common.Ternary(req.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
 	resp, err := client.Do(req.httpRequest.WithContext(ctx))
 	if err != nil {
 		return nil, err
@@ -256,7 +259,7 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 
 	if !req.SkipJSONValidation && body != "" && !gjson.Valid(body) {
 		if 200 <= resp.StatusCode && resp.StatusCode < 300 {
-			truncatedBody, isTruncated := limitStringLength(body, 100)
+			truncatedBody, isTruncated := common.LimitStringLength(body, 100)
 			if isTruncated {
 				truncatedBody += "... <truncated>"
 			}
@@ -524,10 +527,10 @@ var customAPITemplateFuncs = func() template.FuncMap {
 		"parseLocalTime": func(layout, value string) time.Time {
 			return customAPIFuncParseTimeInLocation(layout, value, time.Local)
 		},
-		"toRelativeTime": dynamicRelativeTimeAttrs,
+		"toRelativeTime": common.DynamicRelativeTimeAttrs,
 		"parseRelativeTime": func(layout, value string) template.HTMLAttr {
 			// Shorthand to do both of the above with a single function call
-			return dynamicRelativeTimeAttrs(customAPIFuncParseTimeInLocation(layout, value, time.UTC))
+			return common.DynamicRelativeTimeAttrs(customAPIFuncParseTimeInLocation(layout, value, time.UTC))
 		},
 		"startOfDay": func(t time.Time) time.Time {
 			return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
@@ -570,9 +573,9 @@ var customAPITemplateFuncs = func() template.FuncMap {
 			}
 
 			regex := getCachedRegexp(pattern)
-			return itemAtIndexOrDefault(regex.FindStringSubmatch(s), 1, "")
+			return common.ItemAtIndexOrDefault(regex.FindStringSubmatch(s), 1, "")
 		},
-		"percentChange": percentChange,
+		"percentChange": common.PercentChange,
 		"sortByString": func(key, order string, results []decoratedGJSONResult) []decoratedGJSONResult {
 			sort.Slice(results, func(a, b int) bool {
 				if order == "asc" {
@@ -649,7 +652,7 @@ var customAPITemplateFuncs = func() template.FuncMap {
 		},
 		"withParameter": func(key, value string, req *CustomAPIRequest) *CustomAPIRequest {
 			if req.Parameters == nil {
-				req.Parameters = make(queryParametersField)
+				req.Parameters = make(models.QueryParametersField)
 			}
 			req.Parameters[key] = append(req.Parameters[key], value)
 			return req
@@ -660,7 +663,7 @@ var customAPITemplateFuncs = func() template.FuncMap {
 			return req
 		},
 		"getResponse": func(req *CustomAPIRequest) *customAPIResponseData {
-			err := req.initialize()
+			err := req.Initialize()
 			if err != nil {
 				panic(fmt.Sprintf("initializing request: %v", err))
 			}
@@ -680,7 +683,7 @@ var customAPITemplateFuncs = func() template.FuncMap {
 		},
 	}
 
-	for key, value := range globalTemplateFunctions {
+	for key, value := range web.GlobalTemplateFunctions {
 		if _, exists := funcs[key]; !exists {
 			funcs[key] = value
 		}

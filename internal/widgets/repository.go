@@ -8,9 +8,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
-var repositoryWidgetTemplate = mustParseTemplate("repository.html", "widget-base.html")
+var repositoryWidgetTemplate = common.MustParseTemplate("repository.html", "widget-base.html")
 
 type repositoryWidget struct {
 	widgetBase          `yaml:",inline"`
@@ -22,7 +24,7 @@ type repositoryWidget struct {
 	Repository          repository `yaml:"-"`
 }
 
-func (widget *repositoryWidget) initialize() error {
+func (widget *repositoryWidget) Initialize() error {
 	widget.withTitle("Repository").withCacheDuration(1 * time.Hour)
 
 	if widget.PullRequestsLimit == 0 || widget.PullRequestsLimit < -1 {
@@ -40,7 +42,7 @@ func (widget *repositoryWidget) initialize() error {
 	return nil
 }
 
-func (widget *repositoryWidget) update(ctx context.Context) {
+func (widget *repositoryWidget) Update(ctx context.Context) {
 	details, err := fetchRepositoryDetailsFromGithub(
 		widget.RequestedRepository,
 		string(widget.Token),
@@ -195,7 +197,7 @@ func fetchRepositoryDetailsFromGithub(repo string, token string, maxPRs int, max
 			for i := range PRsResponse.Tickets {
 				details.PullRequests = append(details.PullRequests, githubTicket{
 					Number:    PRsResponse.Tickets[i].Number,
-					CreatedAt: parseRFC3339Time(PRsResponse.Tickets[i].CreatedAt),
+					CreatedAt: common.ParseRFC3339Time(PRsResponse.Tickets[i].CreatedAt),
 					Title:     PRsResponse.Tickets[i].Title,
 				})
 			}
@@ -212,7 +214,7 @@ func fetchRepositoryDetailsFromGithub(repo string, token string, maxPRs int, max
 			for i := range issuesResponse.Tickets {
 				details.Issues = append(details.Issues, githubTicket{
 					Number:    issuesResponse.Tickets[i].Number,
-					CreatedAt: parseRFC3339Time(issuesResponse.Tickets[i].CreatedAt),
+					CreatedAt: common.ParseRFC3339Time(issuesResponse.Tickets[i].CreatedAt),
 					Title:     issuesResponse.Tickets[i].Title,
 				})
 			}
@@ -227,7 +229,7 @@ func fetchRepositoryDetailsFromGithub(repo string, token string, maxPRs int, max
 				details.Commits = append(details.Commits, githubCommitDetails{
 					Sha:       commitsResponse[i].Sha,
 					Author:    commitsResponse[i].Commit.Author.Name,
-					CreatedAt: parseRFC3339Time(commitsResponse[i].Commit.Author.Date),
+					CreatedAt: common.ParseRFC3339Time(commitsResponse[i].Commit.Author.Date),
 					Message:   strings.SplitN(commitsResponse[i].Commit.Message, "\n\n", 2)[0],
 				})
 			}

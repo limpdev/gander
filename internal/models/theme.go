@@ -5,12 +5,11 @@ import (
 	"html/template"
 
 	"github.com/limpdev/gander/internal/common"
-	"github.com/limpdev/gander/internal/web"
 )
 
 var (
-	StyleTemplate         = web.MustParseTemplate("theme-style.gotmpl")
-	PresetPreviewTemplate = web.MustParseTemplate("theme-preset-preview.html")
+	StyleTemplate         = common.MustParseTemplate("theme-style.gotmpl")
+	PresetPreviewTemplate = common.MustParseTemplate("theme-preset-preview.html")
 )
 
 type ThemeProperties struct {

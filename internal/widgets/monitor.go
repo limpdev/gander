@@ -8,39 +8,42 @@ import (
 	"slices"
 	"strconv"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
+	"github.com/limpdev/gander/internal/models"
 )
 
 var (
-	monitorWidgetTemplate        = mustParseTemplate("monitor.html", "widget-base.html")
-	monitorWidgetCompactTemplate = mustParseTemplate("monitor-compact.html", "widget-base.html")
+	monitorWidgetTemplate        = common.MustParseTemplate("monitor.html", "widget-base.html")
+	monitorWidgetCompactTemplate = common.MustParseTemplate("monitor-compact.html", "widget-base.html")
 )
 
 type monitorWidget struct {
 	widgetBase `yaml:",inline"`
 	Sites      []struct {
 		*SiteStatusRequest `yaml:",inline"`
-		Status             *siteStatus     `yaml:"-"`
-		URL                string          `yaml:"-"`
-		ErrorURL           string          `yaml:"error-url"`
-		Title              string          `yaml:"title"`
-		Icon               customIconField `yaml:"icon"`
-		SameTab            bool            `yaml:"same-tab"`
-		StatusText         string          `yaml:"-"`
-		StatusStyle        string          `yaml:"-"`
-		AltStatusCodes     []int           `yaml:"alt-status-codes"`
+		Status             *siteStatus            `yaml:"-"`
+		URL                string                 `yaml:"-"`
+		ErrorURL           string                 `yaml:"error-url"`
+		Title              string                 `yaml:"title"`
+		Icon               models.CustomIconField `yaml:"icon"`
+		SameTab            bool                   `yaml:"same-tab"`
+		StatusText         string                 `yaml:"-"`
+		StatusStyle        string                 `yaml:"-"`
+		AltStatusCodes     []int                  `yaml:"alt-status-codes"`
 	} `yaml:"sites"`
 	Style           string `yaml:"style"`
 	ShowFailingOnly bool   `yaml:"show-failing-only"`
 	HasFailing      bool   `yaml:"-"`
 }
 
-func (widget *monitorWidget) initialize() error {
+func (widget *monitorWidget) Initialize() error {
 	widget.withTitle("Monitor").withCacheDuration(5 * time.Minute)
 
 	return nil
 }
 
-func (widget *monitorWidget) update(ctx context.Context) {
+func (widget *monitorWidget) Update(ctx context.Context) {
 	requests := make([]*SiteStatusRequest, len(widget.Sites))
 
 	for i := range widget.Sites {
@@ -115,10 +118,10 @@ func statusCodeToStyle(status int, altStatusCodes []int) string {
 }
 
 type SiteStatusRequest struct {
-	DefaultURL    string        `yaml:"url"`
-	CheckURL      string        `yaml:"check-url"`
-	AllowInsecure bool          `yaml:"allow-insecure"`
-	Timeout       durationField `yaml:"timeout"`
+	DefaultURL    string               `yaml:"url"`
+	CheckURL      string               `yaml:"check-url"`
+	AllowInsecure bool                 `yaml:"allow-insecure"`
+	Timeout       models.DurationField `yaml:"timeout"`
 	BasicAuth     struct {
 		Username string `yaml:"username"`
 		Password string `yaml:"password"`
@@ -140,7 +143,7 @@ func fetchSiteStatusTask(statusRequest *SiteStatusRequest) (siteStatus, error) {
 		url = statusRequest.DefaultURL
 	}
 
-	timeout := ternary(statusRequest.Timeout > 0, time.Duration(statusRequest.Timeout), 3*time.Second)
+	timeout := common.Ternary(statusRequest.Timeout > 0, time.Duration(statusRequest.Timeout), 3*time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 

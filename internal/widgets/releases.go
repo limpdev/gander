@@ -12,10 +12,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/limpdev/gander/internal/common"
 	"gopkg.in/yaml.v3"
 )
 
-var releasesWidgetTemplate = mustParseTemplate("releases.html", "widget-base.html")
+var releasesWidgetTemplate = common.MustParseTemplate("releases.html", "widget-base.html")
 
 type releasesWidget struct {
 	widgetBase     `yaml:",inline"`
@@ -28,7 +29,7 @@ type releasesWidget struct {
 	ShowSourceIcon bool              `yaml:"show-source-icon"`
 }
 
-func (widget *releasesWidget) initialize() error {
+func (widget *releasesWidget) Initialize() error {
 	widget.withTitle("Releases").withCacheDuration(2 * time.Hour)
 
 	if widget.Limit <= 0 {
@@ -52,7 +53,7 @@ func (widget *releasesWidget) initialize() error {
 	return nil
 }
 
-func (widget *releasesWidget) update(ctx context.Context) {
+func (widget *releasesWidget) Update(ctx context.Context) {
 	releases, err := fetchLatestReleases(widget.Repositories)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
@@ -64,7 +65,7 @@ func (widget *releasesWidget) update(ctx context.Context) {
 	}
 
 	for i := range releases {
-		releases[i].SourceIconURL = widget.Providers.assetResolver("icons/" + string(releases[i].Source) + ".svg")
+		releases[i].SourceIconURL = widget.Providers.AssetResolver("icons/" + string(releases[i].Source) + ".svg")
 	}
 
 	widget.Releases = releases
@@ -251,9 +252,9 @@ func fetchLatestGithubRelease(request *releaseRequest) (*appRelease, error) {
 	return &appRelease{
 		Source:       releaseSourceGithub,
 		Name:         request.Repository,
-		Version:      normalizeVersionFormat(response.TagName),
+		Version:      common.NormalizeVersionFormat(response.TagName),
 		NotesUrl:     response.HtmlUrl,
-		TimeReleased: parseRFC3339Time(response.PublishedAt),
+		TimeReleased: common.ParseRFC3339Time(response.PublishedAt),
 		Downvotes:    response.Reactions.Downvotes,
 	}, nil
 }
@@ -344,7 +345,7 @@ func fetchLatestDockerHubRelease(request *releaseRequest) (*appRelease, error) {
 		NotesUrl:     notesURL,
 		Name:         displayName,
 		Version:      tag.Name,
-		TimeReleased: parseRFC3339Time(tag.LastPushed),
+		TimeReleased: common.ParseRFC3339Time(tag.LastPushed),
 	}, nil
 }
 
@@ -381,9 +382,9 @@ func fetchLatestGitLabRelease(request *releaseRequest) (*appRelease, error) {
 	return &appRelease{
 		Source:       releaseSourceGitlab,
 		Name:         request.Repository,
-		Version:      normalizeVersionFormat(response.TagName),
+		Version:      common.NormalizeVersionFormat(response.TagName),
 		NotesUrl:     response.Links.Self,
-		TimeReleased: parseRFC3339Time(response.ReleasedAt),
+		TimeReleased: common.ParseRFC3339Time(response.ReleasedAt),
 	}, nil
 }
 
@@ -414,8 +415,8 @@ func fetchLatestCodebergRelease(request *releaseRequest) (*appRelease, error) {
 	return &appRelease{
 		Source:       releaseSourceCodeberg,
 		Name:         request.Repository,
-		Version:      normalizeVersionFormat(response.TagName),
+		Version:      common.NormalizeVersionFormat(response.TagName),
 		NotesUrl:     response.HtmlUrl,
-		TimeReleased: parseRFC3339Time(response.PublishedAt),
+		TimeReleased: common.ParseRFC3339Time(response.PublishedAt),
 	}, nil
 }

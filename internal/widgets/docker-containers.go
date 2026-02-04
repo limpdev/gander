@@ -11,9 +11,12 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
+	"github.com/limpdev/gander/internal/models"
 )
 
-var dockerContainersWidgetTemplate = mustParseTemplate("docker-containers.html", "widget-base.html")
+var dockerContainersWidgetTemplate = common.MustParseTemplate("docker-containers.html", "widget-base.html")
 
 type dockerContainersWidget struct {
 	widgetBase           `yaml:",inline"`
@@ -26,7 +29,7 @@ type dockerContainersWidget struct {
 	LabelOverrides       map[string]map[string]string `yaml:"containers"`
 }
 
-func (widget *dockerContainersWidget) initialize() error {
+func (widget *dockerContainersWidget) Initialize() error {
 	widget.withTitle("Docker Containers").withCacheDuration(1 * time.Minute)
 
 	if widget.SockPath == "" {
@@ -36,7 +39,7 @@ func (widget *dockerContainersWidget) initialize() error {
 	return nil
 }
 
-func (widget *dockerContainersWidget) update(ctx context.Context) {
+func (widget *dockerContainersWidget) Update(ctx context.Context) {
 	containers, err := fetchDockerContainers(
 		widget.SockPath,
 		widget.HideByDefault,
@@ -119,7 +122,7 @@ type dockerContainer struct {
 	StateText   string
 	StateIcon   string
 	Description string
-	Icon        customIconField
+	Icon        models.CustomIconField
 	Children    dockerContainerList
 }
 
@@ -173,11 +176,11 @@ func fetchDockerContainers(
 			Name:        deriveDockerContainerName(container, formatNames),
 			URL:         container.Labels.getOrDefault(dockerContainerLabelURL, ""),
 			Description: container.Labels.getOrDefault(dockerContainerLabelDescription, ""),
-			SameTab:     stringToBool(container.Labels.getOrDefault(dockerContainerLabelSameTab, "false")),
+			SameTab:     common.StringToBool(container.Labels.getOrDefault(dockerContainerLabelSameTab, "false")),
 			Image:       container.Image,
 			State:       strings.ToLower(container.State),
 			StateText:   strings.ToLower(container.Status),
-			Icon:        newCustomIconField(container.Labels.getOrDefault(dockerContainerLabelIcon, "si:docker")),
+			Icon:        models.NewCustomIconField(container.Labels.getOrDefault(dockerContainerLabelIcon, "si:docker")),
 		}
 
 		if idValue := container.Labels.getOrDefault(dockerContainerLabelID, ""); idValue != "" {
@@ -272,12 +275,11 @@ func groupDockerContainerChildren(
 
 func isDockerContainerHidden(container *dockerContainerJsonResponse, hideByDefault bool) bool {
 	if v := container.Labels.getOrDefault(dockerContainerLabelHide, ""); v != "" {
-		return stringToBool(v)
+		return common.StringToBool(v)
 	}
 
 	return hideByDefault
 }
-
 
 func fetchDockerContainersFromSource(
 	source string,
@@ -312,8 +314,7 @@ func fetchDockerContainersFromSource(
 		}
 	}
 
-
-	fetchAll := ternary(runningOnly, "false", "true")
+	fetchAll := common.Ternary(runningOnly, "false", "true")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -339,7 +340,7 @@ func fetchDockerContainersFromSource(
 
 	for i := range containers {
 		container := &containers[i]
-		name := strings.TrimLeft(itemAtIndexOrDefault(container.Names, 0, ""), "/")
+		name := strings.TrimLeft(common.ItemAtIndexOrDefault(container.Names, 0, ""), "/")
 
 		if name == "" {
 			continue

@@ -2,10 +2,12 @@ package app
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	mathrand "math/rand/v2"
 	"net/http"
 	"path/filepath"
 	"slices"
@@ -14,17 +16,18 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/limpdev/gander/internal/auth"
 	"github.com/limpdev/gander/internal/common"
 	"github.com/limpdev/gander/internal/models"
+	"github.com/limpdev/gander/internal/web"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
 	pageTemplate        = common.MustParseTemplate("page.html", "document.html", "footer.html")
 	pageContentTemplate = common.MustParseTemplate("page-content.html")
 	manifestTemplate    = common.MustParseTemplate("manifest.json")
+	loginPageTemplate   = common.MustParseTemplate("login.html", "document.html", "footer.html")
 )
 
 const STATIC_ASSETS_CACHE_DURATION = 24 * time.Hour
@@ -32,21 +35,24 @@ const STATIC_ASSETS_CACHE_DURATION = 24 * time.Hour
 var reservedPageSlugs = []string{"login", "logout"}
 
 type Application struct {
-	Version   string
-	CreatedAt time.Time
-	Config    models.Config
-
-	parsedManifest []byte
-
-	slugToPage map[string]*models.Page
-	widgetByID map[uint64]models.Widget
-
+	Version                string
+	CreatedAt              time.Time
+	Config                 models.Config
+	parsedManifest         []byte
+	slugToPage             map[string]*models.Page
+	widgetByID             map[uint64]models.Widget
 	RequiresAuth           bool
 	authSecretKey          []byte
 	usernameHashToUsername map[string]string
 	authAttemptsMu         sync.Mutex
 	failedAuthAttempts     map[string]*auth.FailedAuthAttempt
 }
+type doWhenUnauthorized int
+
+const (
+	redirectToLogin doWhenUnauthorized = iota
+	showUnauthorizedJSON
+)
 
 func NewApplication(c *models.Config) (*Application, error) {
 	app := &Application{
@@ -57,25 +63,20 @@ func NewApplication(c *models.Config) (*Application, error) {
 		widgetByID: make(map[uint64]models.Widget),
 	}
 	config := &app.Config
-
 	//
 	// Init auth
 	//
-
 	if len(config.Auth.Users) > 0 {
 		secretBytes, err := base64.StdEncoding.DecodeString(config.Auth.SecretKey)
 		if err != nil {
 			return nil, fmt.Errorf("decoding secret-key: %v", err)
 		}
-
 		if len(secretBytes) != auth.AUTH_SECRET_KEY_LENGTH {
 			return nil, fmt.Errorf("secret-key must be exactly %d bytes", auth.AUTH_SECRET_KEY_LENGTH)
 		}
-
 		app.usernameHashToUsername = make(map[string]string)
 		app.failedAuthAttempts = make(map[string]*auth.FailedAuthAttempt)
 		app.RequiresAuth = true
-
 		for username := range config.Auth.Users {
 			user := config.Auth.Users[username]
 			usernameHash, err := auth.ComputeUsernameHash(username, secretBytes)
@@ -83,7 +84,6 @@ func NewApplication(c *models.Config) (*Application, error) {
 				return nil, fmt.Errorf("computing username hash for user %s: %v", username, err)
 			}
 			app.usernameHashToUsername[string(usernameHash)] = username
-
 			if user.PasswordHashString != "" {
 				user.PasswordHash = []byte(user.PasswordHashString)
 				user.PasswordHashString = ""
@@ -92,199 +92,127 @@ func NewApplication(c *models.Config) (*Application, error) {
 				if err != nil {
 					return nil, fmt.Errorf("hashing password for user %s: %v", username, err)
 				}
-
 				user.Password = ""
 				user.PasswordHash = hashedPassword
 			}
 		}
-
 		app.authSecretKey = secretBytes
 	}
-
 	//
 	// Init themes
 	//
-
 	if !config.Theme.DisablePicker {
 		themeKeys := make([]string, 0, 2)
-		themeProps := make([]*themeProperties, 0, 2)
-
+		themeProps := make([]*models.ThemeProperties, 0, 2)
 		defaultDarkTheme, ok := config.Theme.Presets.Get("default-dark")
-		if ok && !config.Theme.SameAs(defaultDarkTheme) || !config.Theme.SameAs(&themeProperties{}) {
+		if ok && !config.Theme.SameAs(defaultDarkTheme) || !config.Theme.SameAs(&models.ThemeProperties{}) {
 			themeKeys = append(themeKeys, "default-dark")
-			themeProps = append(themeProps, &themeProperties{})
+			themeProps = append(themeProps, &models.ThemeProperties{})
 		}
-
 		themeKeys = append(themeKeys, "default-light")
-		themeProps = append(themeProps, &themeProperties{
+		themeProps = append(themeProps, &models.ThemeProperties{
 			Light:                    true,
-			BackgroundColor:          &hslColorField{240, 13, 95},
-			PrimaryColor:             &hslColorField{230, 100, 30},
-			NegativeColor:            &hslColorField{0, 70, 50},
+			BackgroundColor:          &models.HSLColorField{H: 240, S: 13, L: 95},
+			PrimaryColor:             &models.HSLColorField{H: 230, S: 100, L: 30},
+			NegativeColor:            &models.HSLColorField{H: 0, S: 70, L: 50},
 			ContrastMultiplier:       1.3,
 			TextSaturationMultiplier: 0.5,
 		})
-
-		themePresets, err := common.NewOrderedYAMLMap(themeKeys, themeProps)
+		themePresets, err := models.NewOrderedYAMLMap(themeKeys, themeProps)
 		if err != nil {
 			return nil, fmt.Errorf("creating theme presets: %v", err)
 		}
 		config.Theme.Presets = *themePresets.Merge(&config.Theme.Presets)
-
 		for key, properties := range config.Theme.Presets.Items() {
 			properties.Key = key
-			if err := properties.init(); err != nil {
+			if err := properties.Initialize(); err != nil {
 				return nil, fmt.Errorf("initializing preset theme %s: %v", key, err)
 			}
 		}
 	}
-
 	config.Theme.Key = "default"
-	if err := config.Theme.init(); err != nil {
+	if err := config.Theme.Initialize(); err != nil {
 		return nil, fmt.Errorf("initializing default theme: %v", err)
 	}
-
 	//
 	// Init pages
 	//
-
 	app.slugToPage[""] = &config.Pages[0]
-
 	providers := &models.WidgetProviders{
-		assetResolver: app.StaticAssetPath,
+		AssetResolver: app.StaticAssetPath,
 	}
-
 	for p := range config.Pages {
 		page := &config.Pages[p]
 		page.PrimaryColumnIndex = -1
-
 		if page.Slug == "" {
-			page.Slug = titleToSlug(page.Title)
+			page.Slug = common.TitleToSlug(page.Title)
 		}
-
 		if slices.Contains(reservedPageSlugs, page.Slug) {
 			return nil, fmt.Errorf("page slug \"%s\" is reserved", page.Slug)
 		}
-
 		app.slugToPage[page.Slug] = page
-
 		if page.Width == "default" {
 			page.Width = ""
 		}
-
 		if page.DesktopNavigationWidth == "" && page.DesktopNavigationWidth != "default" {
 			page.DesktopNavigationWidth = page.Width
 		}
-
 		for i := range page.HeadWidgets {
 			widget := page.HeadWidgets[i]
 			app.widgetByID[widget.GetID()] = widget
-			widget.setProviders(providers)
+			widget.SetProviders(providers)
 		}
-
 		for c := range page.Columns {
 			column := &page.Columns[c]
-
 			if page.PrimaryColumnIndex == -1 && column.Size == "full" {
 				page.PrimaryColumnIndex = int8(c)
 			}
-
 			for w := range column.Widgets {
 				widget := column.Widgets[w]
 				app.widgetByID[widget.GetID()] = widget
-				widget.setProviders(providers)
+				widget.SetProviders(providers)
 			}
 		}
 	}
-
 	config.Server.BaseURL = strings.TrimRight(config.Server.BaseURL, "/")
 	config.Theme.CustomCSSFile = app.resolveUserDefinedAssetPath(config.Theme.CustomCSSFile)
 	config.Branding.LogoURL = app.resolveUserDefinedAssetPath(config.Branding.LogoURL)
-
 	config.Branding.FaviconURL = common.Ternary(
 		config.Branding.FaviconURL == "",
 		app.StaticAssetPath("favicon.svg"),
 		app.resolveUserDefinedAssetPath(config.Branding.FaviconURL),
 	)
-
 	config.Branding.FaviconType = common.Ternary(
 		strings.HasSuffix(config.Branding.FaviconURL, ".svg"),
 		"image/svg+xml",
 		"image/png",
 	)
-
 	if config.Branding.AppName == "" {
-		config.Branding.AppName = "Glance"
+		config.Branding.AppName = "Gander"
 	}
-
 	if config.Branding.AppIconURL == "" {
 		config.Branding.AppIconURL = app.StaticAssetPath("app-icon.png")
 	}
-
 	if config.Branding.AppBackgroundColor == "" {
 		config.Branding.AppBackgroundColor = config.Theme.BackgroundColorAsHex
 	}
-
 	manifest, err := common.ExecuteTemplateToString(manifestTemplate, templateData{App: app})
 	if err != nil {
 		return nil, fmt.Errorf("parsing manifest.json: %v", err)
 	}
 	app.parsedManifest = []byte(manifest)
-
 	return app, nil
 }
-
-func (p *models.Page) updateOutdatedWidgets() {
-	now := time.Now()
-
-	var wg sync.WaitGroup
-	context := context.Background()
-
-	for w := range p.HeadWidgets {
-		widget := p.HeadWidgets[w]
-
-		if !widget.RequiresUpdate(&now) {
-			continue
-		}
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			widget.Update(context)
-		}()
-	}
-
-	for c := range p.Columns {
-		for w := range p.Columns[c].Widgets {
-			widget := p.Columns[c].Widgets[w]
-
-			if !widget.RequiresUpdate(&now) {
-				continue
-			}
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				widget.Update(context)
-			}()
-		}
-	}
-
-	wg.Wait()
-}
-
 func (a *Application) resolveUserDefinedAssetPath(path string) string {
 	if strings.HasPrefix(path, "/assets/") {
 		return a.Config.Server.BaseURL + path
 	}
-
 	return path
 }
 
 type templateRequestData struct {
-	Theme *themeProperties
+	Theme *models.ThemeProperties
 }
-
 type templateData struct {
 	App     *Application
 	Page    *models.Page
@@ -292,8 +220,7 @@ type templateData struct {
 }
 
 func (a *Application) populateTemplateRequestData(data *templateRequestData, r *http.Request) {
-	theme := &a.Config.Theme.themeProperties
-
+	theme := &a.Config.Theme.ThemeProperties
 	if !a.Config.Theme.DisablePicker {
 		selectedTheme, err := r.Cookie("theme")
 		if err == nil {
@@ -303,27 +230,22 @@ func (a *Application) populateTemplateRequestData(data *templateRequestData, r *
 			}
 		}
 	}
-
 	data.Theme = theme
 }
-
 func (a *Application) handlePageRequest(w http.ResponseWriter, r *http.Request) {
 	page, exists := a.slugToPage[r.PathValue("page")]
 	if !exists {
 		a.handleNotFound(w, r)
 		return
 	}
-
 	if a.handleUnauthorizedResponse(w, r, redirectToLogin) {
 		return
 	}
-
 	data := templateData{
 		Page: page,
 		App:  a,
 	}
 	a.populateTemplateRequestData(&data.Request, r)
-
 	var responseBytes bytes.Buffer
 	err := pageTemplate.Execute(&responseBytes, data)
 	if err != nil {
@@ -331,45 +253,35 @@ func (a *Application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 		w.Write([]byte(err.Error()))
 		return
 	}
-
 	w.Write(responseBytes.Bytes())
 }
-
 func (a *Application) handlePageContentRequest(w http.ResponseWriter, r *http.Request) {
 	page, exists := a.slugToPage[r.PathValue("page")]
 	if !exists {
 		a.handleNotFound(w, r)
 		return
 	}
-
 	if a.handleUnauthorizedResponse(w, r, showUnauthorizedJSON) {
 		return
 	}
-
 	pageData := templateData{
 		Page: page,
 	}
-
 	var err error
 	var responseBytes bytes.Buffer
-
 	func() {
-		page.mu.Lock()
-		defer page.mu.Unlock()
-
-		page.updateOutdatedWidgets()
+		page.Mu.Lock()
+		defer page.Mu.Unlock()
+		page.UpdateOutdatedWidgets()
 		err = pageContentTemplate.Execute(&responseBytes, pageData)
 	}()
-
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		return
 	}
-
 	w.Write(responseBytes.Bytes())
 }
-
 func (a *Application) addressOfRequest(r *http.Request) string {
 	remoteAddrWithoutPort := func() string {
 		for i := len(r.RemoteAddr) - 1; i >= 0; i-- {
@@ -377,126 +289,99 @@ func (a *Application) addressOfRequest(r *http.Request) string {
 				return r.RemoteAddr[:i]
 			}
 		}
-
 		return r.RemoteAddr
 	}
-
 	if !a.Config.Server.Proxied {
 		return remoteAddrWithoutPort()
 	}
-
 	// This should probably be configurable or look for multiple headers, not just this one
 	forwardedFor := r.Header.Get("X-Forwarded-For")
 	if forwardedFor == "" {
 		return remoteAddrWithoutPort()
 	}
-
 	ips := strings.Split(forwardedFor, ",")
 	if len(ips) == 0 || ips[0] == "" {
 		return remoteAddrWithoutPort()
 	}
-
 	return ips[0]
 }
-
 func (a *Application) handleNotFound(w http.ResponseWriter, _ *http.Request) {
 	// TODO: add proper not found page
 	w.WriteHeader(http.StatusNotFound)
 	w.Write([]byte("Page not found"))
 }
-
 func (a *Application) handleWidgetRequest(w http.ResponseWriter, r *http.Request) {
 	// TODO: this requires a rework of the widget update logic so that rather
 	// than locking the entire page we lock individual widgets
 	w.WriteHeader(http.StatusNotImplemented)
-
 	// widgetValue := r.PathValue("widget")
-
 	// widgetID, err := strconv.ParseUint(widgetValue, 10, 64)
 	// if err != nil {
-	// 	a.handleNotFound(w, r)
-	// 	return
+	// a.handleNotFound(w, r)
+	// return
 	// }
-
 	// widget, exists := a.widgetByID[widgetID]
-
 	// if !exists {
-	// 	a.handleNotFound(w, r)
-	// 	return
+	// a.handleNotFound(w, r)
+	// return
 	// }
-
 	// widget.handleRequest(w, r)
 }
-
 func (a *Application) StaticAssetPath(asset string) string {
-	return a.Config.Server.BaseURL + "/static/" + staticFSHash + "/" + asset
+	return a.Config.Server.BaseURL + "/static/" + web.StaticFSHash + "/" + asset
 }
-
 func (a *Application) VersionedAssetPath(asset string) string {
 	return a.Config.Server.BaseURL + asset +
 		"?v=" + strconv.FormatInt(a.CreatedAt.Unix(), 10)
 }
-
 func (a *Application) server() (func() error, func() error) {
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("GET /{$}", a.handlePageRequest)
 	mux.HandleFunc("GET /{page}", a.handlePageRequest)
-
 	mux.HandleFunc("GET /api/pages/{page}/content/{$}", a.handlePageContentRequest)
-
 	if !a.Config.Theme.DisablePicker {
 		mux.HandleFunc("POST /api/set-theme/{key}", a.handleThemeChangeRequest)
 	}
-
 	mux.HandleFunc("/api/widgets/{widget}/{path...}", a.handleWidgetRequest)
 	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-
 	if a.RequiresAuth {
 		mux.HandleFunc("GET /login", a.handleLoginPageRequest)
 		mux.HandleFunc("GET /logout", a.handleLogoutRequest)
 		mux.HandleFunc("POST /api/authenticate", a.handleAuthenticationAttempt)
 	}
-
 	mux.Handle(
-		fmt.Sprintf("GET /static/%s/{path...}", staticFSHash),
+		fmt.Sprintf("GET /static/%s/{path...}", web.StaticFSHash),
 		http.StripPrefix(
-			"/static/"+staticFSHash,
-			fileServerWithCache(http.FS(staticFS), STATIC_ASSETS_CACHE_DURATION),
+			"/static/"+web.StaticFSHash,
+			common.FileServerWithCache(http.FS(web.StaticFS), STATIC_ASSETS_CACHE_DURATION),
 		),
 	)
-
 	assetCacheControlValue := fmt.Sprintf(
 		"public, max-age=%d",
 		int(STATIC_ASSETS_CACHE_DURATION.Seconds()),
 	)
-
-	mux.HandleFunc(fmt.Sprintf("GET /static/%s/css/bundle.css", staticFSHash), func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(fmt.Sprintf("GET /static/%s/css/bundle.css", web.StaticFSHash), func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Cache-Control", assetCacheControlValue)
 		w.Header().Add("Content-Type", "text/css; charset=utf-8")
-		w.Write(bundledCSSContents)
+		w.Write(web.BundledCSSContents)
 	})
-
 	mux.HandleFunc("GET /manifest.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Cache-Control", assetCacheControlValue)
 		w.Header().Add("Content-Type", "application/json")
 		w.Write(a.parsedManifest)
 	})
-
 	var absAssetsPath string
 	if a.Config.Server.AssetsPath != "" {
 		absAssetsPath, _ = filepath.Abs(a.Config.Server.AssetsPath)
-		assetsFS := fileServerWithCache(http.Dir(a.Config.Server.AssetsPath), 2*time.Hour)
+		assetsFS := common.FileServerWithCache(http.Dir(a.Config.Server.AssetsPath), 2*time.Hour)
 		mux.Handle("/assets/{path...}", http.StripPrefix("/assets/", assetsFS))
 	}
-
 	server := http.Server{
 		Addr:    fmt.Sprintf("%s:%d", a.Config.Server.Host, a.Config.Server.Port),
 		Handler: mux,
 	}
-
 	start := func() error {
 		log.Printf("Starting server on %s:%d (base-url: \"%s\", assets-path: \"%s\")\n",
 			a.Config.Server.Host,
@@ -504,17 +389,204 @@ func (a *Application) server() (func() error, func() error) {
 			a.Config.Server.BaseURL,
 			absAssetsPath,
 		)
-
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			return err
 		}
-
 		return nil
 	}
-
 	stop := func() error {
 		return server.Close()
 	}
-
 	return start, stop
+}
+
+// Auth methods moved from auth package
+
+// CORRECTION: r must be *http.Request
+func (a *Application) handleAuthenticationAttempt(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Content-Type") != "application/json" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	// CORRECTION: Added * operator (1 * time.Second)
+	waitOnFailure := 1*time.Second - time.Duration(mathrand.IntN(500))*time.Millisecond
+
+	// r is now a pointer, so this works correctly
+	ip := a.addressOfRequest(r)
+
+	a.authAttemptsMu.Lock()
+	exceededRateLimit, retryAfter := func() (bool, int) {
+		attempt, exists := a.failedAuthAttempts[ip]
+		if !exists {
+			a.failedAuthAttempts[ip] = &auth.FailedAuthAttempt{
+				Attempts: 1,
+				First:    time.Now(),
+			}
+			return false, 0
+		}
+		elapsed := time.Since(attempt.First)
+		if elapsed < auth.AUTH_RATE_LIMIT_WINDOW && attempt.Attempts >= auth.AUTH_RATE_LIMIT_MAX_ATTEMPTS {
+			return true, max(1, int(auth.AUTH_RATE_LIMIT_WINDOW.Seconds()-elapsed.Seconds()))
+		}
+		attempt.Attempts++
+		return false, 0
+	}()
+	if exceededRateLimit {
+		a.authAttemptsMu.Unlock()
+		time.Sleep(waitOnFailure)
+		w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+		w.WriteHeader(http.StatusTooManyRequests)
+		return
+	} else {
+		// Clean up old failed attempts
+		for ipOfAttempt := range a.failedAuthAttempts {
+			if time.Since(a.failedAuthAttempts[ipOfAttempt].First) > auth.AUTH_RATE_LIMIT_WINDOW {
+				delete(a.failedAuthAttempts, ipOfAttempt)
+			}
+		}
+		a.authAttemptsMu.Unlock()
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	var creds struct {
+		// CORRECTION: Added backticks around struct tags
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	err = json.Unmarshal(body, &creds)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	logAuthFailure := func() {
+		log.Printf(
+			"Failed login attempt for user '%s' from %s",
+			creds.Username, ip,
+		)
+	}
+	if len(creds.Username) == 0 || len(creds.Password) == 0 {
+		time.Sleep(waitOnFailure)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if len(creds.Username) > 50 || len(creds.Password) > 100 {
+		logAuthFailure()
+		time.Sleep(waitOnFailure)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	u, exists := a.Config.Auth.Users[creds.Username]
+	if !exists {
+		logAuthFailure()
+		time.Sleep(waitOnFailure)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if err := bcrypt.CompareHashAndPassword(u.PasswordHash, []byte(creds.Password)); err != nil {
+		logAuthFailure()
+		time.Sleep(waitOnFailure)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	token, err := auth.GenerateSessionToken(creds.Username, a.authSecretKey, time.Now())
+	if err != nil {
+		log.Printf("Could not compute session token during login attempt: %v", err)
+		time.Sleep(waitOnFailure)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	a.setAuthSessionCookie(w, r, token, time.Now().Add(auth.AUTH_TOKEN_VALID_PERIOD))
+	a.authAttemptsMu.Lock()
+	delete(a.failedAuthAttempts, ip)
+	a.authAttemptsMu.Unlock()
+	w.WriteHeader(http.StatusOK)
+}
+
+func (a *Application) isAuthorized(w http.ResponseWriter, r *http.Request) bool {
+	if !a.RequiresAuth {
+		return true
+	}
+	token, err := r.Cookie(auth.AUTH_SESSION_COOKIE_NAME)
+	if err != nil || token.Value == "" {
+		return false
+	}
+	usernameHash, shouldRegenerate, err := auth.VerifySessionToken(token.Value, a.authSecretKey, time.Now())
+	if err != nil {
+		return false
+	}
+	username, exists := a.usernameHashToUsername[string(usernameHash)]
+	if !exists {
+		return false
+	}
+	_, exists = a.Config.Auth.Users[username]
+	if !exists {
+		return false
+	}
+	if shouldRegenerate {
+		newToken, err := auth.GenerateSessionToken(username, a.authSecretKey, time.Now())
+		if err != nil {
+			log.Printf("Could not compute session token during regeneration: %v", err)
+			return false
+		}
+		a.setAuthSessionCookie(w, r, newToken, time.Now().Add(auth.AUTH_TOKEN_VALID_PERIOD))
+	}
+	return true
+}
+
+// Handles sending the appropriate response for an unauthorized request and returns true if the request was unauthorized
+func (a *Application) handleUnauthorizedResponse(w http.ResponseWriter, r *http.Request, fallback doWhenUnauthorized) bool {
+	if a.isAuthorized(w, r) {
+		return false
+	}
+	switch fallback {
+	case redirectToLogin:
+		http.Redirect(w, r, a.Config.Server.BaseURL+"/login", http.StatusSeeOther)
+	case showUnauthorizedJSON:
+		w.WriteHeader(http.StatusUnauthorized)
+		// CORRECTION: Added backticks/quotes to make this a valid string literal
+		w.Write([]byte(`{"error": "Unauthorized"}`))
+	}
+	return true
+}
+
+// Maybe this should be a POST request instead?
+// CORRECTION: r must be *http.Request
+func (a *Application) handleLogoutRequest(w http.ResponseWriter, r *http.Request) {
+	// CORRECTION: Added * operator (-1 * time.Hour)
+	a.setAuthSessionCookie(w, r, "", time.Now().Add(-1*time.Hour))
+	http.Redirect(w, r, a.Config.Server.BaseURL+"/login", http.StatusSeeOther)
+}
+
+func (a *Application) setAuthSessionCookie(w http.ResponseWriter, r *http.Request, token string, expires time.Time) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.AUTH_SESSION_COOKIE_NAME,
+		Value:    token,
+		Expires:  expires,
+		Secure:   strings.ToLower(r.Header.Get("X-Forwarded-Proto")) == "https",
+		Path:     a.Config.Server.BaseURL + "/",
+		SameSite: http.SameSiteLaxMode,
+		HttpOnly: true,
+	})
+}
+
+func (a *Application) handleLoginPageRequest(w http.ResponseWriter, r *http.Request) {
+	if a.isAuthorized(w, r) {
+		http.Redirect(w, r, a.Config.Server.BaseURL+"/", http.StatusSeeOther)
+		return
+	}
+	data := &templateData{
+		App: a,
+	}
+	a.populateTemplateRequestData(&data.Request, r)
+	var responseBytes bytes.Buffer
+	err := loginPageTemplate.Execute(&responseBytes, data)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	w.Write(responseBytes.Bytes())
 }

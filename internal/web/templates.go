@@ -12,7 +12,7 @@ import (
 
 var intl = message.NewPrinter(language.English)
 
-var globalTemplateFunctions = template.FuncMap{
+var GlobalTemplateFunctions = template.FuncMap{
 	"formatApproxNumber": formatApproxNumber,
 	"formatNumber":       intl.Sprint,
 	"safeCSS": func(str string) template.CSS {
@@ -58,16 +58,16 @@ var globalTemplateFunctions = template.FuncMap{
 	},
 }
 
-func MustParseTemplate(primary string, dependencies ...string) *template.Template {
-	t, err := template.New(primary).
-		Funcs(globalTemplateFunctions).
-		ParseFS(TemplateFS, append([]string{primary}, dependencies...)...)
-	if err != nil {
-		panic(err)
-	}
+// func MustParseTemplate(primary string, dependencies ...string) *template.Template {
+// 	t, err := template.New(primary).
+// 		Funcs(GlobalTemplateFunctions).
+// 		ParseFS(TemplateFS, append([]string{primary}, dependencies...)...)
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-	return t
-}
+// 	return t
+// }
 
 func formatApproxNumber(count int) string {
 	if count < 1_000 {

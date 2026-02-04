@@ -10,9 +10,11 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
-var twitchChannelsWidgetTemplate = mustParseTemplate("twitch-channels.html", "widget-base.html")
+var twitchChannelsWidgetTemplate = common.MustParseTemplate("twitch-channels.html", "widget-base.html")
 
 type twitchChannelsWidget struct {
 	widgetBase      `yaml:",inline"`
@@ -22,7 +24,7 @@ type twitchChannelsWidget struct {
 	SortBy          string          `yaml:"sort-by"`
 }
 
-func (widget *twitchChannelsWidget) initialize() error {
+func (widget *twitchChannelsWidget) Initialize() error {
 	widget.
 		withTitle("Twitch Channels").
 		withTitleURL("https://www.twitch.tv/directory/following").
@@ -39,7 +41,7 @@ func (widget *twitchChannelsWidget) initialize() error {
 	return nil
 }
 
-func (widget *twitchChannelsWidget) update(ctx context.Context) {
+func (widget *twitchChannelsWidget) Update(ctx context.Context) {
 	channels, err := fetchChannelsFromTwitch(widget.ChannelsRequest)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {

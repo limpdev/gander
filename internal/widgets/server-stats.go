@@ -10,19 +10,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/limpdev/gander/internal/common"
 	"github.com/limpdev/gander/internal/models"
-	"github.com/limpdev/gander/internal/web"
 	"github.com/limpdev/gander/pkg/sysinfo"
 )
 
-var serverStatsWidgetTemplate = web.MustParseTemplate("server-stats.html", "widget-base.html")
+var serverStatsWidgetTemplate = common.MustParseTemplate("server-stats.html", "widget-base.html")
 
 type serverStatsWidget struct {
 	widgetBase `yaml:",inline"`
 	Servers    []serverStatsRequest `yaml:"servers"`
 }
 
-func (widget *serverStatsWidget) initialize() error {
+func (widget *serverStatsWidget) Initialize() error {
 	widget.withTitle("Server Stats").withCacheDuration(15 * time.Second)
 	widget.widgetBase.WIP = true
 
@@ -41,7 +41,7 @@ func (widget *serverStatsWidget) initialize() error {
 	return nil
 }
 
-func (widget *serverStatsWidget) update(context.Context) {
+func (widget *serverStatsWidget) Update(ctx context.Context) {
 	// Refactor later, most of it may change depending on feedback
 	var wg sync.WaitGroup
 

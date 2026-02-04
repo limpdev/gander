@@ -10,14 +10,16 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/limpdev/gander/internal/common"
 )
 
 const videosWidgetPlaylistPrefix = "playlist:"
 
 var (
-	videosWidgetTemplate             = mustParseTemplate("videos.html", "widget-base.html", "video-card-contents.html")
-	videosWidgetGridTemplate         = mustParseTemplate("videos-grid.html", "widget-base.html", "video-card-contents.html")
-	videosWidgetVerticalListTemplate = mustParseTemplate("videos-vertical-list.html", "widget-base.html")
+	videosWidgetTemplate             = common.MustParseTemplate("videos.html", "widget-base.html", "video-card-contents.html")
+	videosWidgetGridTemplate         = common.MustParseTemplate("videos-grid.html", "widget-base.html", "video-card-contents.html")
+	videosWidgetVerticalListTemplate = common.MustParseTemplate("videos-vertical-list.html", "widget-base.html")
 )
 
 type videosWidget struct {
@@ -33,7 +35,7 @@ type videosWidget struct {
 	IncludeShorts     bool      `yaml:"include-shorts"`
 }
 
-func (widget *videosWidget) initialize() error {
+func (widget *videosWidget) Initialize() error {
 	widget.withTitle("Videos").withCacheDuration(time.Hour)
 
 	if widget.Limit <= 0 {
@@ -63,7 +65,7 @@ func (widget *videosWidget) initialize() error {
 	return nil
 }
 
-func (widget *videosWidget) update(ctx context.Context) {
+func (widget *videosWidget) Update(ctx context.Context) {
 	videos, err := fetchYoutubeChannelUploads(widget.Channels, widget.VideoUrlTemplate, widget.IncludeShorts)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
