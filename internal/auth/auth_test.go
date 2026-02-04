@@ -8,7 +8,7 @@ import (
 )
 
 func TestAuthTokenGenerationAndVerification(t *testing.T) {
-	secret, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
+	secret, err := MakeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
 	if err != nil {
 		t.Fatalf("Failed to generate secret key: %v", err)
 	}

@@ -13,10 +13,8 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
-	"time"
 
-	"github.com/limpdev/gander/internal/app"
-	"github.com/limpdev/gander/internal/utils"
+	"github.com/limpdev/gander/internal/common"
 )
 
 var (
@@ -24,18 +22,16 @@ var (
 	errPartialContent = errors.New("failed to retrieve some of the content")
 )
 
-const DefaultClientTimeout = 5 * time.Second
-
 var defaultHTTPClient = &http.Client{
 	Transport: &http.Transport{
 		MaxIdleConnsPerHost: 10,
 		Proxy:               http.ProxyFromEnvironment,
 	},
-	Timeout: DefaultClientTimeout,
+	Timeout: common.DefaultClientTimeout,
 }
 
 var defaultInsecureHTTPClient = &http.Client{
-	Timeout: DefaultClientTimeout,
+	Timeout: common.DefaultClientTimeout,
 	Transport: &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		Proxy:           http.ProxyFromEnvironment,
@@ -46,7 +42,7 @@ type requestDoer interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-var glanceUserAgentString = "Gander/" + app.BuildVersion + " +https://github.com/limpdev/gander"
+var glanceUserAgentString = "Gander/" + common.BuildVersion + " +https://github.com/limpdev/gander"
 var userAgentPersistentVersion atomic.Int32
 
 func getBrowserUserAgentHeader() string {
@@ -77,7 +73,7 @@ func decodeJsonFromRequest[T any](client requestDoer, request *http.Request) (T,
 	}
 
 	if response.StatusCode != http.StatusOK {
-		truncatedBody, _ := utils.LimitStringLength(string(body), 256)
+		truncatedBody, _ := common.LimitStringLength(string(body), 256)
 
 		return result, fmt.Errorf(
 			"unexpected status code %d from %s, response: %s",
@@ -117,7 +113,7 @@ func decodeXmlFromRequest[T any](client requestDoer, request *http.Request) (T, 
 	}
 
 	if response.StatusCode != http.StatusOK {
-		truncatedBody, _ := utils.LimitStringLength(string(body), 256)
+		truncatedBody, _ := common.LimitStringLength(string(body), 256)
 
 		return result, fmt.Errorf(
 			"unexpected status code %d for %s, response: %s",

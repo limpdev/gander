@@ -15,42 +15,46 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/limpdev/gander/internal/auth"
+	"github.com/limpdev/gander/internal/common"
+	"github.com/limpdev/gander/internal/models"
 )
 
 var (
-	pageTemplate        = mustParseTemplate("page.html", "document.html", "footer.html")
-	pageContentTemplate = mustParseTemplate("page-content.html")
-	manifestTemplate    = mustParseTemplate("manifest.json")
+	pageTemplate        = common.MustParseTemplate("page.html", "document.html", "footer.html")
+	pageContentTemplate = common.MustParseTemplate("page-content.html")
+	manifestTemplate    = common.MustParseTemplate("manifest.json")
 )
 
 const STATIC_ASSETS_CACHE_DURATION = 24 * time.Hour
 
 var reservedPageSlugs = []string{"login", "logout"}
 
-type application struct {
+type Application struct {
 	Version   string
 	CreatedAt time.Time
-	Config    config
+	Config    models.Config
 
 	parsedManifest []byte
 
-	slugToPage map[string]*page
-	widgetByID map[uint64]widget
+	slugToPage map[string]*models.Page
+	widgetByID map[uint64]models.Widget
 
 	RequiresAuth           bool
 	authSecretKey          []byte
 	usernameHashToUsername map[string]string
 	authAttemptsMu         sync.Mutex
-	failedAuthAttempts     map[string]*failedAuthAttempt
+	failedAuthAttempts     map[string]*auth.FailedAuthAttempt
 }
 
-func newApplication(c *config) (*application, error) {
-	app := &application{
-		Version:    buildVersion,
+func NewApplication(c *models.Config) (*Application, error) {
+	app := &Application{
+		Version:    BuildVersion,
 		CreatedAt:  time.Now(),
 		Config:     *c,
-		slugToPage: make(map[string]*page),
-		widgetByID: make(map[uint64]widget),
+		slugToPage: make(map[string]*models.Page),
+		widgetByID: make(map[uint64]models.Widget),
 	}
 	config := &app.Config
 
@@ -64,17 +68,17 @@ func newApplication(c *config) (*application, error) {
 			return nil, fmt.Errorf("decoding secret-key: %v", err)
 		}
 
-		if len(secretBytes) != AUTH_SECRET_KEY_LENGTH {
-			return nil, fmt.Errorf("secret-key must be exactly %d bytes", AUTH_SECRET_KEY_LENGTH)
+		if len(secretBytes) != auth.AUTH_SECRET_KEY_LENGTH {
+			return nil, fmt.Errorf("secret-key must be exactly %d bytes", auth.AUTH_SECRET_KEY_LENGTH)
 		}
 
 		app.usernameHashToUsername = make(map[string]string)
-		app.failedAuthAttempts = make(map[string]*failedAuthAttempt)
+		app.failedAuthAttempts = make(map[string]*auth.FailedAuthAttempt)
 		app.RequiresAuth = true
 
 		for username := range config.Auth.Users {
 			user := config.Auth.Users[username]
-			usernameHash, err := computeUsernameHash(username, secretBytes)
+			usernameHash, err := auth.ComputeUsernameHash(username, secretBytes)
 			if err != nil {
 				return nil, fmt.Errorf("computing username hash for user %s: %v", username, err)
 			}
@@ -121,7 +125,7 @@ func newApplication(c *config) (*application, error) {
 			TextSaturationMultiplier: 0.5,
 		})
 
-		themePresets, err := newOrderedYAMLMap(themeKeys, themeProps)
+		themePresets, err := common.NewOrderedYAMLMap(themeKeys, themeProps)
 		if err != nil {
 			return nil, fmt.Errorf("creating theme presets: %v", err)
 		}
@@ -146,7 +150,7 @@ func newApplication(c *config) (*application, error) {
 
 	app.slugToPage[""] = &config.Pages[0]
 
-	providers := &widgetProviders{
+	providers := &models.WidgetProviders{
 		assetResolver: app.StaticAssetPath,
 	}
 
@@ -197,13 +201,13 @@ func newApplication(c *config) (*application, error) {
 	config.Theme.CustomCSSFile = app.resolveUserDefinedAssetPath(config.Theme.CustomCSSFile)
 	config.Branding.LogoURL = app.resolveUserDefinedAssetPath(config.Branding.LogoURL)
 
-	config.Branding.FaviconURL = ternary(
+	config.Branding.FaviconURL = common.Ternary(
 		config.Branding.FaviconURL == "",
 		app.StaticAssetPath("favicon.svg"),
 		app.resolveUserDefinedAssetPath(config.Branding.FaviconURL),
 	)
 
-	config.Branding.FaviconType = ternary(
+	config.Branding.FaviconType = common.Ternary(
 		strings.HasSuffix(config.Branding.FaviconURL, ".svg"),
 		"image/svg+xml",
 		"image/png",
@@ -221,7 +225,7 @@ func newApplication(c *config) (*application, error) {
 		config.Branding.AppBackgroundColor = config.Theme.BackgroundColorAsHex
 	}
 
-	manifest, err := executeTemplateToString(manifestTemplate, templateData{App: app})
+	manifest, err := common.ExecuteTemplateToString(manifestTemplate, templateData{App: app})
 	if err != nil {
 		return nil, fmt.Errorf("parsing manifest.json: %v", err)
 	}
@@ -230,7 +234,7 @@ func newApplication(c *config) (*application, error) {
 	return app, nil
 }
 
-func (p *page) updateOutdatedWidgets() {
+func (p *models.Page) updateOutdatedWidgets() {
 	now := time.Now()
 
 	var wg sync.WaitGroup
@@ -239,14 +243,14 @@ func (p *page) updateOutdatedWidgets() {
 	for w := range p.HeadWidgets {
 		widget := p.HeadWidgets[w]
 
-		if !widget.requiresUpdate(&now) {
+		if !widget.RequiresUpdate(&now) {
 			continue
 		}
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			widget.update(context)
+			widget.Update(context)
 		}()
 	}
 
@@ -254,14 +258,14 @@ func (p *page) updateOutdatedWidgets() {
 		for w := range p.Columns[c].Widgets {
 			widget := p.Columns[c].Widgets[w]
 
-			if !widget.requiresUpdate(&now) {
+			if !widget.RequiresUpdate(&now) {
 				continue
 			}
 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				widget.update(context)
+				widget.Update(context)
 			}()
 		}
 	}
@@ -269,7 +273,7 @@ func (p *page) updateOutdatedWidgets() {
 	wg.Wait()
 }
 
-func (a *application) resolveUserDefinedAssetPath(path string) string {
+func (a *Application) resolveUserDefinedAssetPath(path string) string {
 	if strings.HasPrefix(path, "/assets/") {
 		return a.Config.Server.BaseURL + path
 	}
@@ -282,12 +286,12 @@ type templateRequestData struct {
 }
 
 type templateData struct {
-	App     *application
-	Page    *page
+	App     *Application
+	Page    *models.Page
 	Request templateRequestData
 }
 
-func (a *application) populateTemplateRequestData(data *templateRequestData, r *http.Request) {
+func (a *Application) populateTemplateRequestData(data *templateRequestData, r *http.Request) {
 	theme := &a.Config.Theme.themeProperties
 
 	if !a.Config.Theme.DisablePicker {
@@ -303,7 +307,7 @@ func (a *application) populateTemplateRequestData(data *templateRequestData, r *
 	data.Theme = theme
 }
 
-func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) {
+func (a *Application) handlePageRequest(w http.ResponseWriter, r *http.Request) {
 	page, exists := a.slugToPage[r.PathValue("page")]
 	if !exists {
 		a.handleNotFound(w, r)
@@ -331,7 +335,7 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 	w.Write(responseBytes.Bytes())
 }
 
-func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Request) {
+func (a *Application) handlePageContentRequest(w http.ResponseWriter, r *http.Request) {
 	page, exists := a.slugToPage[r.PathValue("page")]
 	if !exists {
 		a.handleNotFound(w, r)
@@ -366,7 +370,7 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 	w.Write(responseBytes.Bytes())
 }
 
-func (a *application) addressOfRequest(r *http.Request) string {
+func (a *Application) addressOfRequest(r *http.Request) string {
 	remoteAddrWithoutPort := func() string {
 		for i := len(r.RemoteAddr) - 1; i >= 0; i-- {
 			if r.RemoteAddr[i] == ':' {
@@ -395,13 +399,13 @@ func (a *application) addressOfRequest(r *http.Request) string {
 	return ips[0]
 }
 
-func (a *application) handleNotFound(w http.ResponseWriter, _ *http.Request) {
+func (a *Application) handleNotFound(w http.ResponseWriter, _ *http.Request) {
 	// TODO: add proper not found page
 	w.WriteHeader(http.StatusNotFound)
 	w.Write([]byte("Page not found"))
 }
 
-func (a *application) handleWidgetRequest(w http.ResponseWriter, r *http.Request) {
+func (a *Application) handleWidgetRequest(w http.ResponseWriter, r *http.Request) {
 	// TODO: this requires a rework of the widget update logic so that rather
 	// than locking the entire page we lock individual widgets
 	w.WriteHeader(http.StatusNotImplemented)
@@ -424,16 +428,16 @@ func (a *application) handleWidgetRequest(w http.ResponseWriter, r *http.Request
 	// widget.handleRequest(w, r)
 }
 
-func (a *application) StaticAssetPath(asset string) string {
+func (a *Application) StaticAssetPath(asset string) string {
 	return a.Config.Server.BaseURL + "/static/" + staticFSHash + "/" + asset
 }
 
-func (a *application) VersionedAssetPath(asset string) string {
+func (a *Application) VersionedAssetPath(asset string) string {
 	return a.Config.Server.BaseURL + asset +
 		"?v=" + strconv.FormatInt(a.CreatedAt.Unix(), 10)
 }
 
-func (a *application) server() (func() error, func() error) {
+func (a *Application) server() (func() error, func() error) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /{$}", a.handlePageRequest)

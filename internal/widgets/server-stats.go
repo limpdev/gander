@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/limpdev/gander/internal/utils"
+	"github.com/limpdev/gander/internal/models"
 	"github.com/limpdev/gander/internal/web"
 	"github.com/limpdev/gander/pkg/sysinfo"
 )
@@ -34,7 +34,7 @@ func (widget *serverStatsWidget) initialize() error {
 		widget.Servers[i].URL = strings.TrimRight(widget.Servers[i].URL, "/")
 
 		if widget.Servers[i].Timeout == 0 {
-			widget.Servers[i].Timeout = utils.DurationField(3 * time.Second)
+			widget.Servers[i].Timeout = models.DurationField(3 * time.Second)
 		}
 	}
 
@@ -88,15 +88,15 @@ func (widget *serverStatsWidget) Render() template.HTML {
 
 type serverStatsRequest struct {
 	*sysinfo.SystemInfoRequest `yaml:",inline"`
-	Info                       *sysinfo.SystemInfo `yaml:"-"`
-	IsReachable                bool                `yaml:"-"`
-	StatusText                 string              `yaml:"-"`
-	Name                       string              `yaml:"name"`
-	HideSwap                   bool                `yaml:"hide-swap"`
-	Type                       string              `yaml:"type"`
-	URL                        string              `yaml:"url"`
-	Token                      string              `yaml:"token"`
-	Timeout                    utils.DurationField `yaml:"timeout"`
+	Info                       *sysinfo.SystemInfo  `yaml:"-"`
+	IsReachable                bool                 `yaml:"-"`
+	StatusText                 string               `yaml:"-"`
+	Name                       string               `yaml:"name"`
+	HideSwap                   bool                 `yaml:"hide-swap"`
+	Type                       string               `yaml:"type"`
+	URL                        string               `yaml:"url"`
+	Token                      string               `yaml:"token"`
+	Timeout                    models.DurationField `yaml:"timeout"`
 	// Support for other agents
 	// Provider                   string              `yaml:"provider"`
 }

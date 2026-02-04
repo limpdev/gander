@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/limpdev/gander/internal/auth"
+	"github.com/limpdev/gander/internal/loader"
+	"github.com/limpdev/gander/internal/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -33,18 +36,18 @@ func Main() int {
 			return 1
 		}
 	case IntentConfigValidate:
-		contents, _, err := parseYAMLIncludes(options.ConfigPath)
+		contents, _, err := utils.ParseYAMLIncludes(options.ConfigPath)
 		if err != nil {
 			fmt.Printf("Could not parse config file: %v\n", err)
 			return 1
 		}
 
-		if _, err := newConfigFromYAML(contents); err != nil {
+		if _, err := utils.NewConfigFromYAML(contents); err != nil {
 			fmt.Printf("Config file is invalid: %v\n", err)
 			return 1
 		}
 	case IntentConfigPrint:
-		contents, _, err := parseYAMLIncludes(options.ConfigPath)
+		contents, _, err := utils.ParseYAMLIncludes(options.ConfigPath)
 		if err != nil {
 			fmt.Printf("Could not parse config file: %v\n", err)
 			return 1
@@ -52,13 +55,13 @@ func Main() int {
 
 		fmt.Println(string(contents))
 	case IntentSensorsPrint:
-		return IntentSensorsPrint()
+		return int(IntentSensorsPrint)
 	case IntentMountpointInfo:
 		return IntentMountpointInfo(options.Args[1])
 	case IntentDiagnose:
 		return IntentDiagnose()
 	case IntentSecretMake:
-		key, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
+		key, err := auth.MakeAuthSecretKey(auth.AUTH_SECRET_KEY_LENGTH)
 		if err != nil {
 			fmt.Printf("Failed to make secret key: %v\n", err)
 			return 1
@@ -149,23 +152,23 @@ func serveApp(configPath string) error {
 		log.Printf("Error watching config files: %v", err)
 	}
 
-	configContents, configIncludes, err := parseYAMLIncludes(configPath)
+	configContents, configIncludes, err := loader.ParseYAMLIncludes(configPath)
 	if err != nil {
 		return fmt.Errorf("parsing config: %w", err)
 	}
 
-	stopWatching, err := configFilesWatcher(configPath, configContents, configIncludes, onChange, onErr)
+	stopWatching, err := loader.ConfigFilesWatcher(configPath, configContents, configIncludes, onChange, onErr)
 	if err == nil {
 		defer stopWatching()
 	} else {
 		log.Printf("Error starting file watcher, config file changes will require a manual restart. (%v)", err)
 
-		config, err := newConfigFromYAML(configContents)
+		config, err := loader.NewConfigFromYAML(configContents)
 		if err != nil {
 			return fmt.Errorf("validating config file: %w", err)
 		}
 
-		app, err := newApplication(config)
+		app, err := loader.NewApplication(config)
 		if err != nil {
 			return fmt.Errorf("creating application: %w", err)
 		}
@@ -181,9 +184,9 @@ func serveApp(configPath string) error {
 }
 
 func serveUpdateNoticeIfConfigLocationNotMigrated(configPath string) bool {
-	if !isRunningInsideDockerContainer() {
-		return false
-	}
+	// if !isRunningInsideDockerContainer() {
+	// 	return false
+	// }
 
 	if _, err := os.Stat(configPath); err == nil {
 		return false
@@ -194,7 +197,7 @@ func serveUpdateNoticeIfConfigLocationNotMigrated(configPath string) bool {
 		return false
 	}
 
-	templateFile, _ := templateFS.Open("v0.7-update-notice-page.html")
+	templateFile, _ := auth.TemplateFS.Open("v0.7-update-notice-page.html")
 	bodyContents, _ := io.ReadAll(templateFile)
 
 	fmt.Println("!!! WARNING !!!")

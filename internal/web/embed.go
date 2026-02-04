@@ -1,4 +1,4 @@
-package app
+package web
 
 import (
 	"bytes"
@@ -24,7 +24,7 @@ var _staticFS embed.FS
 var _templateFS embed.FS
 
 var staticFS, _ = fs.Sub(_staticFS, "static")
-var templateFS, _ = fs.Sub(_templateFS, "templates")
+var TemplateFS, _ = fs.Sub(_templateFS, "templates")
 
 func readAllFromStaticFS(path string) ([]byte, error) {
 	// For some reason fs.FS only works with forward slashes, so in case we're
@@ -82,6 +82,7 @@ func computeFSHash(files fs.FS) (string, error) {
 
 var cssImportPattern = regexp.MustCompile(`(?m)^@import "(.*?)";$`)
 var cssSingleLineCommentPattern = regexp.MustCompile(`(?m)^\s*\/\*.*?\*\/$`)
+var whitespaceAtBeginningOfLinePattern = regexp.MustCompile(`(?m)^\s+`)
 
 // Yes, we bundle at runtime, give comptime pls
 var bundledCSSContents = func() []byte {

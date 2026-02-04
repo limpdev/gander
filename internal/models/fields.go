@@ -1,4 +1,4 @@
-package utils
+package models
 
 import (
 	"crypto/tls"
@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/limpdev/gander/internal/widgets"
+	"github.com/limpdev/gander/internal/common"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,21 +23,21 @@ const (
 	hslLightnessMax  = 100
 )
 
-type hslColorField struct {
+type HSLColorField struct {
 	H float64
 	S float64
 	L float64
 }
 
-func (c *hslColorField) String() string {
+func (c *HSLColorField) String() string {
 	return fmt.Sprintf("hsl(%.1f, %.1f%%, %.1f%%)", c.H, c.S, c.L)
 }
 
-func (c *hslColorField) ToHex() string {
-	return hslToHex(c.H, c.S, c.L)
+func (c *HSLColorField) ToHex() string {
+	return common.HslToHex(c.H, c.S, c.L)
 }
 
-func (c1 *hslColorField) SameAs(c2 *hslColorField) bool {
+func (c1 *HSLColorField) SameAs(c2 *HSLColorField) bool {
 	if c1 == nil && c2 == nil {
 		return true
 	}
@@ -47,7 +47,7 @@ func (c1 *hslColorField) SameAs(c2 *hslColorField) bool {
 	return c1.H == c2.H && c1.S == c2.S && c1.L == c2.L
 }
 
-func (c *hslColorField) UnmarshalYAML(node *yaml.Node) error {
+func (c *HSLColorField) UnmarshalYAML(node *yaml.Node) error {
 	var value string
 
 	if err := node.Decode(&value); err != nil {
@@ -130,14 +130,14 @@ func (d *DurationField) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-type customIconField struct {
+type CustomIconField struct {
 	URL        template.URL
 	AutoInvert bool
 }
 
-func newCustomIconField(value string) customIconField {
+func NewCustomIconField(value string) CustomIconField {
 	const autoInvertPrefix = "auto-invert "
-	field := customIconField{}
+	field := CustomIconField{}
 
 	if strings.HasPrefix(value, autoInvertPrefix) {
 		field.AutoInvert = true
@@ -178,25 +178,25 @@ func newCustomIconField(value string) customIconField {
 	return field
 }
 
-func (i *customIconField) UnmarshalYAML(node *yaml.Node) error {
+func (i *CustomIconField) UnmarshalYAML(node *yaml.Node) error {
 	var value string
 	if err := node.Decode(&value); err != nil {
 		return err
 	}
 
-	*i = newCustomIconField(value)
+	*i = NewCustomIconField(value)
 	return nil
 }
 
-type proxyOptionsField struct {
+type ProxyOptionsField struct {
 	URL           string        `yaml:"url"`
 	AllowInsecure bool          `yaml:"allow-insecure"`
 	Timeout       DurationField `yaml:"timeout"`
-	client        *http.Client  `yaml:"-"`
+	Client        *http.Client  `yaml:"-"`
 }
 
-func (p *proxyOptionsField) UnmarshalYAML(node *yaml.Node) error {
-	type proxyOptionsFieldAlias proxyOptionsField
+func (p *ProxyOptionsField) UnmarshalYAML(node *yaml.Node) error {
+	type proxyOptionsFieldAlias ProxyOptionsField
 	alias := (*proxyOptionsFieldAlias)(p)
 	var proxyURL string
 
@@ -219,12 +219,12 @@ func (p *proxyOptionsField) UnmarshalYAML(node *yaml.Node) error {
 		return fmt.Errorf("parsing proxy URL: %v", err)
 	}
 
-	timeout := widgets.DefaultClientTimeout
+	timeout := common.DefaultClientTimeout
 	if p.Timeout > 0 {
 		timeout = time.Duration(p.Timeout)
 	}
 
-	p.client = &http.Client{
+	p.Client = &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
 			Proxy:           http.ProxyURL(parsedUrl),
@@ -235,16 +235,16 @@ func (p *proxyOptionsField) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-type queryParametersField map[string][]string
+type QueryParametersField map[string][]string
 
-func (q *queryParametersField) UnmarshalYAML(node *yaml.Node) error {
+func (q *QueryParametersField) UnmarshalYAML(node *yaml.Node) error {
 	var decoded map[string]any
 
 	if err := node.Decode(&decoded); err != nil {
 		return err
 	}
 
-	*q = make(queryParametersField)
+	*q = make(QueryParametersField)
 
 	// TODO: refactor the duplication in the switch cases if any more types get added
 	for key, value := range decoded {
@@ -278,7 +278,7 @@ func (q *queryParametersField) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-func (q *queryParametersField) toQueryString() string {
+func (q *QueryParametersField) ToQueryString() string {
 	query := url.Values{}
 
 	for key, values := range *q {
